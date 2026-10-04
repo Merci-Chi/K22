@@ -16,13 +16,77 @@ let state = {
   settings: null
 };
 
+const USER_TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+function zonedParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: USER_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).formatToParts(date);
+
+  const out = {};
+  parts.forEach(part => {
+    if (part.type !== "literal") out[part.type] = part.value;
+  });
+  return out;
+}
+
 const todayISO = () => {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  const p = zonedParts();
+  return `${p.year}-${p.month}-${p.day}`;
 };
+
+function localHour() {
+  const p = zonedParts();
+  return Number(p.hour) % 24;
+}
+
+function localDateObject() {
+  const p = zonedParts();
+  return new Date(Number(p.year), Number(p.month) - 1, Number(p.day));
+}
+
+function formatLocalLongDate() {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: USER_TIMEZONE,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  }).format(new Date());
+}
+
+function updateDynamicDateUI() {
+  const hour = localHour();
+  const greeting = hour < 12 ? "Good Morning" : hour < 17 ? "Good Afternoon" : "Good Evening";
+
+  const homeGreeting = document.querySelector('body[data-page="home"] .greeting h1');
+  if (homeGreeting) {
+    homeGreeting.innerHTML = `${greeting}, Kiara <i data-lucide="${hour >= 18 || hour < 6 ? "moon" : "sun"}" class="title-icon"></i>`;
+  }
+
+  const todayHeading = document.querySelector('body[data-page="today"] .greeting h1');
+  if (todayHeading) {
+    todayHeading.innerHTML = `Today <i data-lucide="${hour >= 18 || hour < 6 ? "moon" : "sun"}" class="title-icon"></i>`;
+  }
+
+  const pageSubtitle = document.querySelector('body[data-page="today"] .greeting p');
+  if (pageSubtitle) {
+    pageSubtitle.textContent = `${formatLocalLongDate()} · ${USER_TIMEZONE}`;
+  }
+
+  const homeSubtitle = document.querySelector('body[data-page="home"] .greeting p');
+  if (homeSubtitle) {
+    homeSubtitle.textContent = `Organize today for the life you want tomorrow. · ${USER_TIMEZONE}`;
+  }
+
+  icons();
+}
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({
@@ -271,6 +335,7 @@ async function seedRoutineIfNeeded() {
 }
 
 function renderEverything() {
+  updateDynamicDateUI();
   renderTaskSection("homeTodoList","homeTodoForm","homeTodoInput","clearCompleted","home");
   renderTaskSection("todayPageTasks","todayTaskForm","todayTaskInput","todayClearDone","today");
   renderCalendar();
@@ -349,7 +414,8 @@ function renderTaskSection(listId, formId, inputId, clearId, scope) {
   icons();
 }
 
-let calendarCursor = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const initialLocalDate = localDateObject();
+let calendarCursor = new Date(initialLocalDate.getFullYear(), initialLocalDate.getMonth(), 1);
 let selectedDate = todayISO();
 
 function isoDate(y, m, d) {
@@ -417,7 +483,12 @@ function renderCalendar() {
   if (buttons.length === 3 && !buttons[0].dataset.bound) {
     buttons.forEach(x => x.dataset.bound = "1");
     buttons[0].addEventListener("click", () => { calendarCursor.setMonth(calendarCursor.getMonth()-1); renderCalendar(); });
-    buttons[1].addEventListener("click", () => { const n=new Date(); calendarCursor=new Date(n.getFullYear(),n.getMonth(),1); selectedDate=todayISO(); renderCalendar(); });
+    buttons[1].addEventListener("click", () => {
+      const n = localDateObject();
+      calendarCursor = new Date(n.getFullYear(), n.getMonth(), 1);
+      selectedDate = todayISO();
+      renderCalendar();
+    });
     buttons[2].addEventListener("click", () => { calendarCursor.setMonth(calendarCursor.getMonth()+1); renderCalendar(); });
   }
 
@@ -475,7 +546,7 @@ function renderAgenda() {
 function renderHomeCalendar() {
   const panel = document.querySelector(".dashboard-calendar-panel");
   if (!panel) return;
-  const now = new Date();
+  const now = localDateObject();
   const title = panel.querySelector(".panel-title-row h2");
   if (title) title.innerHTML = `<i data-lucide="calendar-days"></i> ${monthName(new Date(now.getFullYear(), now.getMonth(), 1))}`;
 
@@ -822,6 +893,7 @@ window.addEventListener("online",()=>{setSyncStatus("Back online");loadAll();});
 window.addEventListener("offline",()=>setSyncStatus("Offline",true));
 
 (async function init(){
+  updateDynamicDateUI();
   document.querySelector(".app-shell")?.classList.add("auth-hidden");
   makeAuthGate();
   const { data:{ session } } = await db.auth.getSession();
@@ -831,3 +903,24 @@ window.addEventListener("offline",()=>setSyncStatus("Offline",true));
   });
   icons();
 })();
+
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    updateDynamicDateUI();
+    renderHomeCalendar();
+    renderHomeEvents();
+    if (document.querySelector(".full-calendar-grid")) {
+      const d = localDateObject();
+      if (selectedDate === todayISO()) {
+        calendarCursor = new Date(d.getFullYear(), d.getMonth(), 1);
+      }
+      renderCalendar();
+    }
+  }
+});
+
+setInterval(() => {
+  updateDynamicDateUI();
+  renderHomeEvents();
+}, 60000);
