@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css.css" />
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <title>Calendar — Life Organizer</title>
+</head>
+<body data-page="calendar">
+  <div class="app-shell">
+    
+<aside class="sidebar">
+  <div class="brand-mark"><i data-lucide="cat"></i></div>
+  <nav class="side-nav">
+    <a class="nav-item " href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+    <a class="nav-item active" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+    <a class="nav-item " href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+    <a class="nav-item " href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+    <a class="nav-item " href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+  </nav>
+</aside>
+
+    <main class="main-content">
+      
+<header class="topbar">
+  <div class="greeting">
+    <h1>Calendar <i data-lucide="calendar-days" class="title-icon"></i></h1>
+    <p>Appointments, plans, birthdays, deadlines, and everything coming up.</p>
+  </div>
+  <div class="top-actions">
+    <label class="search-wrap">
+      <i data-lucide="search"></i>
+      <input id="globalSearch" type="search" placeholder="Search this page..." />
+    </label>
+    <button class="round-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="notif-dot"></span></button>
+    <button class="avatar-btn" aria-label="Profile"><i data-lucide="user-round"></i></button>
+  </div>
+</header>
+
+<section class="calendar-page-grid">
+  <article class="panel full-calendar-panel">
+    <div class="calendar-toolbar">
+      <div>
+        <h2>October 2026</h2>
+        <p>Month view</p>
+      </div>
+      <div class="toolbar-actions">
+        <button class="soft-btn"><i data-lucide="chevron-left"></i></button>
+        <button class="soft-btn">Today</button>
+        <button class="soft-btn"><i data-lucide="chevron-right"></i></button>
+      </div>
+    </div>
+
+    <div class="calendar-weekdays full-weekdays">
+      <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+    </div>
+
+    <div class="full-calendar-grid">
+      <button class="day-cell muted-day"><span>27</span></button>
+      <button class="day-cell muted-day"><span>28</span></button>
+      <button class="day-cell muted-day"><span>29</span></button>
+      <button class="day-cell muted-day"><span>30</span></button>
+      <button class="day-cell"><span>1</span></button>
+      <button class="day-cell"><span>2</span></button>
+      <button class="day-cell"><span>3</span></button>
+
+      <button class="day-cell today-cell"><span>4</span><small>Today</small></button>
+      <button class="day-cell"><span>5</span></button>
+      <button class="day-cell"><span>6</span></button>
+      <button class="day-cell"><span>7</span></button>
+      <button class="day-cell"><span>8</span></button>
+      <button class="day-cell"><span>9</span></button>
+      <button class="day-cell"><span>10</span></button>
+
+      <button class="day-cell"><span>11</span></button>
+      <button class="day-cell"><span>12</span></button>
+      <button class="day-cell"><span>13</span></button>
+      <button class="day-cell"><span>14</span></button>
+      <button class="day-cell"><span>15</span></button>
+      <button class="day-cell"><span>16</span></button>
+      <button class="day-cell"><span>17</span></button>
+
+      <button class="day-cell"><span>18</span></button>
+      <button class="day-cell"><span>19</span></button>
+      <button class="day-cell"><span>20</span></button>
+      <button class="day-cell"><span>21</span></button>
+      <button class="day-cell"><span>22</span></button>
+      <button class="day-cell"><span>23</span></button>
+      <button class="day-cell"><span>24</span><em class="event-pill">Party</em></button>
+
+      <button class="day-cell"><span>25</span><em class="event-pill gold-pill">4 PM</em></button>
+      <button class="day-cell"><span>26</span></button>
+      <button class="day-cell"><span>27</span></button>
+      <button class="day-cell"><span>28</span></button>
+      <button class="day-cell"><span>29</span></button>
+      <button class="day-cell"><span>30</span></button>
+      <button class="day-cell"><span>31</span></button>
+    </div>
+  </article>
+
+  <aside class="calendar-side">
+    <article class="panel">
+      <div class="panel-title-row">
+        <h2>Upcoming</h2>
+        <button class="link-btn" id="addEventBtn"><i data-lucide="plus"></i> Add</button>
+      </div>
+      <div id="eventsList" class="agenda-list">
+        <div class="agenda-item pink"><span class="agenda-dot"></span><div><b>Work on website</b><small>Today · 10:00 AM</small></div></div>
+        <div class="agenda-item lilac"><span class="agenda-dot"></span><div><b>Call client</b><small>Today · 1:00 PM</small></div></div>
+        <div class="agenda-item gold"><span class="agenda-dot"></span><div><b>Costume party</b><small>Oct 25 · 4:00 PM</small></div></div>
+      </div>
+    </article>
+  </aside>
+</section>
+
+    </main>
+    
+<nav class="mobile-nav">
+  <a class="" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+  <a class="active" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+  <a class="" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+  <a class="" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+  <a class="" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+</nav>
+
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Card</h3>
+        <button id="closeModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <textarea id="modalNotes" placeholder="Write notes here..."></textarea>
+      <button class="save-btn" id="saveNotes">Save</button>
+    </div>
+  </div>
+
+  <script src="js.js"></script>
+</body>
+</html>

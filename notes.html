@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css.css" />
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <title>Notes — Life Organizer</title>
+</head>
+<body data-page="notes">
+  <div class="app-shell">
+    
+<aside class="sidebar">
+  <div class="brand-mark"><i data-lucide="cat"></i></div>
+  <nav class="side-nav">
+    <a class="nav-item " href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+    <a class="nav-item " href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+    <a class="nav-item " href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+    <a class="nav-item active" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+    <a class="nav-item " href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+  </nav>
+</aside>
+
+    <main class="main-content">
+      
+<header class="topbar">
+  <div class="greeting">
+    <h1>Notes <i data-lucide="notebook-pen" class="title-icon"></i></h1>
+    <p>A quiet place for lists, thoughts, reminders, and brain dumps.</p>
+  </div>
+  <div class="top-actions">
+    <label class="search-wrap">
+      <i data-lucide="search"></i>
+      <input id="globalSearch" type="search" placeholder="Search this page..." />
+    </label>
+    <button class="round-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="notif-dot"></span></button>
+    <button class="avatar-btn" aria-label="Profile"><i data-lucide="user-round"></i></button>
+  </div>
+</header>
+
+<section class="notes-layout">
+  <aside class="panel notes-sidebar">
+    <div class="panel-title-row">
+      <h2>Notes</h2>
+      <button class="soft-btn" id="newNoteBtn"><i data-lucide="plus"></i></button>
+    </div>
+    <div id="notesList" class="notes-list"></div>
+  </aside>
+
+  <article class="panel note-editor">
+    <input id="noteTitle" class="note-title-input" placeholder="Untitled note" />
+    <textarea id="noteBody" class="note-body-input" placeholder="Start writing..."></textarea>
+    <div class="editor-actions">
+      <button class="soft-btn danger-soft" id="deleteNoteBtn"><i data-lucide="trash-2"></i> Delete</button>
+      <button class="save-btn small-save" id="saveNoteBtn">Save Note</button>
+    </div>
+  </article>
+</section>
+
+    </main>
+    
+<nav class="mobile-nav">
+  <a class="" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+  <a class="" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+  <a class="" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+  <a class="active" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+  <a class="" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+</nav>
+
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Card</h3>
+        <button id="closeModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <textarea id="modalNotes" placeholder="Write notes here..."></textarea>
+      <button class="save-btn" id="saveNotes">Save</button>
+    </div>
+  </div>
+
+  <script src="js.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="css.css" />
+<script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <title>Today — Life Organizer</title>
+</head>
+<body data-page="today">
+  <div class="app-shell">
+    
+<aside class="sidebar">
+  <div class="brand-mark"><i data-lucide="cat"></i></div>
+  <nav class="side-nav">
+    <a class="nav-item " href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+    <a class="nav-item " href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+    <a class="nav-item active" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+    <a class="nav-item " href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+    <a class="nav-item " href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+  </nav>
+</aside>
+
+    <main class="main-content">
+      
+<header class="topbar">
+  <div class="greeting">
+    <h1>Today <i data-lucide="sun" class="title-icon"></i></h1>
+    <p>Only what matters for today — no clutter.</p>
+  </div>
+  <div class="top-actions">
+    <label class="search-wrap">
+      <i data-lucide="search"></i>
+      <input id="globalSearch" type="search" placeholder="Search this page..." />
+    </label>
+    <button class="round-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="notif-dot"></span></button>
+    <button class="avatar-btn" aria-label="Profile"><i data-lucide="user-round"></i></button>
+  </div>
+</header>
+
+<section class="today-page-grid">
+  <article class="panel">
+    <div class="panel-title-row">
+      <h2><i data-lucide="check-circle-2"></i> Today’s Tasks</h2>
+      <button class="link-btn" id="todayClearDone">Clear Done</button>
+    </div>
+    <div id="todayPageTasks" class="task-list large-task-list"></div>
+    <form id="todayTaskForm" class="quick-add">
+      <i data-lucide="plus"></i>
+      <input id="todayTaskInput" type="text" placeholder="Add something for today..." />
+    </form>
+  </article>
+
+  <article class="panel">
+    <div class="panel-title-row">
+      <h2><i data-lucide="clock-3"></i> Routine</h2>
+    </div>
+    <div class="routine-list">
+      <label><input type="checkbox"> <span>Morning reset</span></label>
+      <label><input type="checkbox"> <span>Check calendar</span></label>
+      <label><input type="checkbox"> <span>Meal / water</span></label>
+      <label><input type="checkbox"> <span>Movement / self care</span></label>
+      <label><input type="checkbox"> <span>Evening reset</span></label>
+    </div>
+  </article>
+
+  <article class="panel today-summary">
+    <h2><i data-lucide="sparkles"></i> Quick Focus</h2>
+    <textarea id="focusNote" placeholder="What do you want to remember today?"></textarea>
+    <button class="save-btn compact-save" id="saveFocus">Save Focus</button>
+  </article>
+</section>
+
+    </main>
+    
+<nav class="mobile-nav">
+  <a class="" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+  <a class="" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+  <a class="active" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+  <a class="" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+  <a class="" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+</nav>
+
+  </div>
+
+  <div class="modal-backdrop hidden" id="modalBackdrop">
+    <div class="modal">
+      <div class="modal-head">
+        <h3 id="modalTitle">Card</h3>
+        <button id="closeModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+      <textarea id="modalNotes" placeholder="Write notes here..."></textarea>
+      <button class="save-btn" id="saveNotes">Save</button>
+    </div>
+  </div>
+
+  <script src="js.js"></script>
+</body>
+</html>
