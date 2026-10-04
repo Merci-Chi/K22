@@ -64,8 +64,19 @@
                 <small>Document</small>
                 <h2>Your Page</h2>
               </div>
-              <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
+              <div class="category-editor-tools">
+                <button id="toggleCategoryOutline" class="category-outline-toggle" type="button"><i data-lucide="list-tree"></i><span>Outline</span></button>
+                <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
+              </div>
             </div>
+
+            <aside id="categoryOutline" class="category-outline hidden">
+              <div class="category-outline-head">
+                <span><i data-lucide="list-tree"></i> Page Outline</span>
+                <button id="closeCategoryOutline" type="button" aria-label="Close outline"><i data-lucide="x"></i></button>
+              </div>
+              <div id="categoryOutlineItems" class="category-outline-items"></div>
+            </aside>
 
             <div id="categoryBlockCanvas" class="category-block-canvas"></div>
 
@@ -91,6 +102,8 @@
                 <button type="button" data-block-type="checklist"><i data-lucide="list-checks"></i><span><b>Checklist</b><small>Checkable item</small></span></button>
                 <button type="button" data-block-type="quote"><i data-lucide="quote"></i><span><b>Quote</b><small>Pull quote</small></span></button>
                 <button type="button" data-block-type="callout"><i data-lucide="highlighter"></i><span><b>Highlight</b><small>Callout box</small></span></button>
+                <button type="button" data-block-type="section"><i data-lucide="panel-top"></i><span><b>Section</b><small>Collapsible page section</small></span></button>
+                <button type="button" data-block-type="columns"><i data-lucide="columns-2"></i><span><b>Columns</b><small>Two-column layout</small></span></button>
                 <button type="button" data-media-block="image"><i data-lucide="image"></i><span><b>Image</b><small>Photo with caption</small></span></button>
                 <button type="button" data-media-block="gallery"><i data-lucide="gallery-horizontal"></i><span><b>Gallery</b><small>Multiple photos</small></span></button>
                 <button type="button" data-media-block="file"><i data-lucide="file"></i><span><b>File Card</b><small>Document or attachment</small></span></button>
