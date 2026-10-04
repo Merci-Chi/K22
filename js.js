@@ -1920,6 +1920,9 @@ const CATEGORY_BLOCK_TYPES = {
   checklist:{label:"Checklist",icon:"list-checks",placeholder:"To-do item"},
   quote:{label:"Quote",icon:"quote",placeholder:"Quote or important thought"},
   callout:{label:"Highlight",icon:"highlighter",placeholder:"Highlight something important"},
+  image:{label:"Image",icon:"image"},
+  gallery:{label:"Gallery",icon:"gallery-horizontal"},
+  file:{label:"File Card",icon:"file"},
   link:{label:"Link",icon:"link",placeholder:"Link title"},
   code:{label:"Code",icon:"code-2",placeholder:"Paste code or a snippet..."},
   divider:{label:"Divider",icon:"minus"},
@@ -2224,7 +2227,225 @@ function categoryNumberForBlock(block) {
     .length;
 }
 
+
+const signedMediaUrlCache=new Map();
+
+async function signedAttachmentUrl(file) {
+  if(!file)return null;
+  const cached=signedMediaUrlCache.get(file.id);
+  if(cached && cached.expires>Date.now())return cached.url;
+  if(!navigator.onLine)return null;
+  const {data,error}=await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(file.storage_path,3600);
+  if(error)return null;
+  signedMediaUrlCache.set(file.id,{url:data.signedUrl,expires:Date.now()+55*60*1000});
+  return data.signedUrl;
+}
+
+function attachmentById(id) {
+  return (state.attachments||[]).find(x=>x.id===id)||null;
+}
+
+async function chooseFiles(accept,multiple=false) {
+  return await new Promise(resolve=>{
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept=accept||"*/*";
+    input.multiple=multiple;
+    input.style.display="none";
+    document.body.appendChild(input);
+    input.addEventListener("change",()=>{
+      const files=[...input.files];
+      input.remove();
+      resolve(files);
+    },{once:true});
+    input.addEventListener("cancel",()=>{
+      input.remove();
+      resolve([]);
+    },{once:true});
+    input.click();
+  });
+}
+
+async function createMediaBlock(kind) {
+  if(!activeCategory)return;
+  if(!navigator.onLine){
+    toast("Connect to the internet to add media",true);
+    return;
+  }
+  const multiple=kind==="gallery";
+  const files=await chooseFiles(kind==="file"?"*/*":"image/*",multiple);
+  if(!files.length)return;
+
+  const selected=kind==="gallery"?files.filter(f=>String(f.type||"").startsWith("image/")):files.slice(0,1);
+  if(!selected.length){
+    toast("Choose image files for a gallery",true);
+    return;
+  }
+
+  const uploaded=[];
+  for(const file of selected){
+    const row=await uploadAttachment(file,"category",activeCategory,{quiet:true});
+    if(row)uploaded.push(row);
+  }
+  if(!uploaded.length)return;
+
+  const content=kind==="gallery"
+    ? {attachment_ids:uploaded.map(x=>x.id),caption:""}
+    : kind==="image"
+      ? {attachment_id:uploaded[0].id,caption:""}
+      : {attachment_id:uploaded[0].id};
+
+  const rows=blocksForActiveCategory();
+  const local={
+    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,type:kind,
+    content,settings:kind==="image"?{size:"medium"}:kind==="gallery"?{columns:2}:{},
+    position:rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+  };
+
+  state.categoryBlocks.push(local);
+  saveOfflineCache();
+  const result=await commitMutation({
+    table:"category_blocks",action:"insert",payload:local
+  },[local]);
+
+  if(result.error){
+    state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==local.id);
+    saveOfflineCache();
+    return toast(result.error.message,true);
+  }
+  if(result.data?.[0])Object.assign(local,result.data[0]);
+
+  renderCategoryBlocks();
+  renderCategoryAttachments();
+  updateCategoryDocumentMeta();
+  toast(kind==="gallery"?"Gallery added":kind==="image"?"Image added":"File added");
+}
+
+async function hydrateMediaBlock(block,row) {
+  const content=normalizeBlockContent(block);
+
+  if(block.type==="image"){
+    const file=attachmentById(content.attachment_id);
+    const img=row.querySelector(".category-media-image");
+    if(!file||!img)return;
+    const url=await signedAttachmentUrl(file);
+    if(url)img.src=url;
+  }
+
+  if(block.type==="gallery"){
+    const ids=Array.isArray(content.attachment_ids)?content.attachment_ids:[];
+    for(const id of ids){
+      const file=attachmentById(id);
+      const img=row.querySelector('[data-attachment-id="'+id+'"]');
+      if(!file||!img)continue;
+      const url=await signedAttachmentUrl(file);
+      if(url)img.src=url;
+    }
+  }
+}
+
+function mediaBlockField(block,content) {
+  const wrap=document.createElement("div");
+  wrap.className="category-media-block";
+
+  if(block.type==="image"){
+    const file=attachmentById(content.attachment_id);
+    const size=block.settings?.size||"medium";
+    wrap.classList.add("size-"+size);
+    wrap.innerHTML=`
+      <div class="category-media-frame">
+        <img class="category-media-image" alt="${esc(content.caption||file?.file_name||"Category image")}">
+        <div class="category-media-loading"><i data-lucide="image"></i></div>
+      </div>
+      <div class="category-media-controls">
+        <div class="category-media-size">
+          <button type="button" data-size="small" class="${size==="small"?"active":""}">S</button>
+          <button type="button" data-size="medium" class="${size==="medium"?"active":""}">M</button>
+          <button type="button" data-size="full" class="${size==="full"?"active":""}">Full</button>
+        </div>
+        <span>${esc(file?.file_name||"Image")}</span>
+      </div>
+      <input class="category-media-caption" type="text" placeholder="Add a caption..." value="${esc(content.caption||"")}">
+    `;
+
+    wrap.querySelectorAll("[data-size]").forEach(btn=>btn.addEventListener("click",async()=>{
+      block.settings={...(block.settings||{}),size:btn.dataset.size};
+      await updateCategoryBlock(block,{settings:block.settings});
+      renderCategoryBlocks();
+    }));
+
+    let timer;
+    wrap.querySelector(".category-media-caption").addEventListener("input",e=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        content={...content,caption:e.target.value};
+        updateCategoryBlock(block,{content});
+      },350);
+    });
+    return wrap;
+  }
+
+  if(block.type==="gallery"){
+    const ids=Array.isArray(content.attachment_ids)?content.attachment_ids:[];
+    const columns=Number(block.settings?.columns)||2;
+    wrap.innerHTML=`
+      <div class="category-gallery-grid columns-${columns}">
+        ${ids.map(id=>{
+          const file=attachmentById(id);
+          return '<div class="category-gallery-item"><img data-attachment-id="'+esc(id)+'" alt="'+esc(file?.file_name||"Gallery image")+'"><span><i data-lucide="image"></i></span></div>';
+        }).join("")}
+      </div>
+      <div class="category-media-controls">
+        <div class="category-media-size">
+          <button type="button" data-columns="2" class="${columns===2?"active":""}">2</button>
+          <button type="button" data-columns="3" class="${columns===3?"active":""}">3</button>
+        </div>
+        <span>${ids.length} ${ids.length===1?"photo":"photos"}</span>
+      </div>
+      <input class="category-media-caption" type="text" placeholder="Add a gallery caption..." value="${esc(content.caption||"")}">
+    `;
+
+    wrap.querySelectorAll("[data-columns]").forEach(btn=>btn.addEventListener("click",async()=>{
+      block.settings={...(block.settings||{}),columns:Number(btn.dataset.columns)};
+      await updateCategoryBlock(block,{settings:block.settings});
+      renderCategoryBlocks();
+    }));
+
+    let timer;
+    wrap.querySelector(".category-media-caption").addEventListener("input",e=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        content={...content,caption:e.target.value};
+        updateCategoryBlock(block,{content});
+      },350);
+    });
+    return wrap;
+  }
+
+  if(block.type==="file"){
+    const file=attachmentById(content.attachment_id);
+    wrap.innerHTML=`
+      <button type="button" class="category-file-card">
+        <span class="category-file-card-icon"><i data-lucide="${attachmentIcon(file?.mime_type)}"></i></span>
+        <span class="category-file-card-copy">
+          <b>${esc(file?.file_name||"Attached file")}</b>
+          <small>${esc(formatFileSize(file?.file_size||0))}${file?.mime_type?" · "+esc(file.mime_type):""}</small>
+        </span>
+        <i data-lucide="external-link"></i>
+      </button>
+    `;
+    wrap.querySelector(".category-file-card").addEventListener("click",()=>file&&openAttachment(file));
+    return wrap;
+  }
+
+  return wrap;
+}
+
 function categoryBlockField(block, content) {
+  if(["image","gallery","file"].includes(block.type)){
+    return mediaBlockField(block,content);
+  }
+
   if(block.type==="divider"){
     const divider=document.createElement("div");
     divider.className="category-block-divider";
@@ -2381,6 +2602,9 @@ function renderCategoryBlocks() {
     });
 
     canvas.appendChild(row);
+    if(["image","gallery"].includes(block.type)){
+      hydrateMediaBlock(block,row);
+    }
   });
 
   bindCategoryBlockMenu();
@@ -2399,6 +2623,15 @@ function bindCategoryBlockMenu() {
       icons();
     });
   }
+
+  menu.querySelectorAll("[data-media-block]").forEach(btn=>{
+    if(btn.dataset.bound)return;
+    btn.dataset.bound="1";
+    btn.addEventListener("click",async()=>{
+      menu.classList.add("hidden");
+      await createMediaBlock(btn.dataset.mediaBlock);
+    });
+  });
 
   menu.querySelectorAll("[data-block-type]").forEach(btn=>{
     if(btn.dataset.bound)return;
@@ -2733,7 +2966,7 @@ function attachmentIcon(mime) {
   return "file";
 }
 
-async function uploadAttachment(file, ownerType, ownerKey) {
+async function uploadAttachment(file, ownerType, ownerKey, options={}) {
   if(!currentUser || !ownerKey)return;
   if(!navigator.onLine){
     toast("Connect to the internet to upload files",true);
@@ -2785,7 +3018,8 @@ async function uploadAttachment(file, ownerType, ownerKey) {
   renderNoteAttachments();
   renderCategoryAttachments();
   setSyncStatus("Synced");
-  toast("File uploaded");
+  if(!options.quiet)toast("File uploaded");
+  return data;
 }
 
 async function openAttachment(file) {
@@ -2939,11 +3173,15 @@ function buildUniversalSearchResults(query) {
 
   (state.categoryBlocks||[]).forEach(block=>{
     const content=normalizeBlockContent(block);
-    const hay=[block.category,content.text,content.url].filter(Boolean).join(" ").toLowerCase();
+    const mediaNames=[
+      content.attachment_id ? attachmentById(content.attachment_id)?.file_name : "",
+      ...(Array.isArray(content.attachment_ids)?content.attachment_ids.map(id=>attachmentById(id)?.file_name||"") : [])
+    ];
+    const hay=[block.category,content.text,content.url,content.caption,...mediaNames].filter(Boolean).join(" ").toLowerCase();
     if(hay.includes(q) && (content.text||content.url)){
       results.push({
         type:block.category,icon:CATEGORY_BLOCK_TYPES[block.type]?.icon||"blocks",
-        title:content.text||content.url,
+        title:content.text||content.caption||mediaNames.filter(Boolean).join(", ")||content.url||CATEGORY_BLOCK_TYPES[block.type]?.label||"Block",
         detail:(CATEGORY_BLOCK_TYPES[block.type]?.label||"Block")+" · Category page",
         page:"category.html",action:"category-block",id:block.id,category:block.category
       });
