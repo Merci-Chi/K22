@@ -129,6 +129,20 @@ function setSyncStatus(text, offline = false) {
   pill.querySelector(".sync-text").textContent = text;
 }
 
+
+function passwordProblem(password) {
+  if(password.length < 8) return "Use at least 8 characters.";
+  if(!/[A-Z]/.test(password)) return "Add at least one capital letter.";
+  if(!/[a-z]/.test(password)) return "Add at least one lowercase letter.";
+  if(!/\d/.test(password)) return "Add at least one number.";
+  if(!/[^A-Za-z0-9]/.test(password)) return "Add at least one symbol.";
+  return "";
+}
+
+function rememberedEmail() {
+  return localStorage.getItem("k22RememberedEmail") || "";
+}
+
 function makeAuthGate() {
   if (document.getElementById("authGate")) return;
   const gate = document.createElement("div");
@@ -136,6 +150,7 @@ function makeAuthGate() {
   gate.className = "auth-gate";
   gate.innerHTML = `
     <div class="auth-card">
+      <div class="auth-brand-icon"><i data-lucide="shield-check"></i></div>
       <h1>K22</h1>
       <p>Your life organizer, synced everywhere.</p>
       <div class="auth-tabs">
@@ -147,13 +162,30 @@ function makeAuthGate() {
           <input id="authEmail" type="email" autocomplete="email" required>
         </label>
         <label>Password
-          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required>
+          <div class="password-field">
+            <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
+            <button type="button" class="password-toggle" id="authPasswordToggle" aria-label="Show password"><i data-lucide="eye"></i></button>
+          </div>
+        </label>
+        <div class="password-rules hidden" id="passwordRules">8+ characters · capital · lowercase · number · symbol</div>
+        <label class="remember-email-row">
+          <input id="rememberEmailCheck" type="checkbox">
+          <span>Save email for login on this device</span>
         </label>
         <button class="auth-submit" id="authSubmit" type="submit">Sign In</button>
+        <button class="auth-link-btn" id="forgotPasswordBtn" type="button">Forgot password?</button>
       </form>
       <div class="auth-message" id="authMessage"></div>
     </div>`;
   document.body.appendChild(gate);
+
+  const saved=rememberedEmail();
+  const emailInput=document.getElementById("authEmail");
+  const remember=document.getElementById("rememberEmailCheck");
+  if(saved){
+    emailInput.value=saved;
+    remember.checked=true;
+  }
 
   let mode = "signin";
   gate.querySelectorAll(".auth-tab").forEach(btn => {
@@ -162,15 +194,44 @@ function makeAuthGate() {
       gate.querySelectorAll(".auth-tab").forEach(x => x.classList.toggle("active", x === btn));
       document.getElementById("authSubmit").textContent = mode === "signin" ? "Sign In" : "Create Account";
       document.getElementById("authPassword").autocomplete = mode === "signin" ? "current-password" : "new-password";
+      document.getElementById("passwordRules").classList.toggle("hidden",mode!=="signup");
+      document.getElementById("forgotPasswordBtn").classList.toggle("hidden",mode!=="signin");
       setAuthMessage("");
     });
   });
 
+  document.getElementById("authPasswordToggle")?.addEventListener("click",()=>{
+    const input=document.getElementById("authPassword");
+    input.type=input.type==="password"?"text":"password";
+    document.getElementById("authPasswordToggle").innerHTML=input.type==="password"
+      ? '<i data-lucide="eye"></i>'
+      : '<i data-lucide="eye-off"></i>';
+    icons();
+  });
+
+  document.getElementById("forgotPasswordBtn")?.addEventListener("click",async()=>{
+    const email=emailInput.value.trim();
+    if(!email)return setAuthMessage("Enter your email first.",true);
+    const redirectTo=location.origin+location.pathname;
+    const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo});
+    if(error)return setAuthMessage(error.message,true);
+    setAuthMessage("Password reset email sent. Open the link in that email to choose a new password.");
+  });
+
   document.getElementById("authForm").addEventListener("submit", async e => {
     e.preventDefault();
-    const email = document.getElementById("authEmail").value.trim();
+    const email = emailInput.value.trim();
     const password = document.getElementById("authPassword").value;
     const submit = document.getElementById("authSubmit");
+
+    if(mode==="signup"){
+      const problem=passwordProblem(password);
+      if(problem)return setAuthMessage(problem,true);
+    }
+
+    if(remember.checked)localStorage.setItem("k22RememberedEmail",email);
+    else localStorage.removeItem("k22RememberedEmail");
+
     submit.disabled = true;
     submit.textContent = mode === "signin" ? "Signing In..." : "Creating...";
 
@@ -190,7 +251,7 @@ function makeAuthGate() {
     }
 
     if (mode === "signup") {
-      setAuthMessage("Account created. If email confirmation is enabled, check your email before signing in.");
+      setAuthMessage("Account created. Check your email if verification is enabled, then sign in.");
     }
   });
 }
@@ -2587,6 +2648,274 @@ function applyPendingSearchJump() {
 
 
 
+
+function securityDate(value) {
+  if(!value)return "Not available";
+  try{return new Date(value).toLocaleString();}catch{return String(value);}
+}
+
+function deviceDescription() {
+  const platform=navigator.userAgentData?.platform || navigator.platform || "This device";
+  return platform+" · "+USER_TIMEZONE;
+}
+
+function appLockKey() {
+  return currentUser ? "k22AppLock:"+currentUser.id : null;
+}
+
+async function hashPin(pin) {
+  const data=new TextEncoder().encode(pin);
+  const hash=await crypto.subtle.digest("SHA-256",data);
+  return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,"0")).join("");
+}
+
+function appLockEnabled() {
+  const key=appLockKey();
+  return !!(key && localStorage.getItem(key));
+}
+
+async function setAppLockPin(pin) {
+  if(!/^\d{4,8}$/.test(pin))throw new Error("Use a 4–8 digit PIN.");
+  localStorage.setItem(appLockKey(),await hashPin(pin));
+  sessionStorage.setItem("k22Unlocked:"+currentUser.id,"1");
+}
+
+function disableAppLock() {
+  const key=appLockKey();
+  if(key)localStorage.removeItem(key);
+  if(currentUser)sessionStorage.removeItem("k22Unlocked:"+currentUser.id);
+  document.getElementById("appLockGate")?.remove();
+}
+
+function lockApp() {
+  if(!currentUser || !appLockEnabled())return;
+  sessionStorage.removeItem("k22Unlocked:"+currentUser.id);
+  showAppLockGate();
+}
+
+function showAppLockGate() {
+  if(!currentUser || !appLockEnabled())return;
+  if(sessionStorage.getItem("k22Unlocked:"+currentUser.id)==="1")return;
+  if(document.getElementById("appLockGate"))return;
+
+  const gate=document.createElement("div");
+  gate.id="appLockGate";
+  gate.className="app-lock-gate";
+  gate.innerHTML=`
+    <div class="app-lock-card">
+      <div class="app-lock-icon"><i data-lucide="lock-keyhole"></i></div>
+      <h2>K22 is locked</h2>
+      <p>Enter this device’s PIN to continue.</p>
+      <form id="appLockForm">
+        <input id="appLockPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" placeholder="PIN" required>
+        <button type="submit">Unlock</button>
+      </form>
+      <div class="app-lock-message" id="appLockMessage"></div>
+      <button class="app-lock-signout" id="appLockSignOut" type="button">Sign out instead</button>
+    </div>`;
+  document.body.appendChild(gate);
+
+  document.getElementById("appLockForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const pin=document.getElementById("appLockPin").value;
+    const expected=localStorage.getItem(appLockKey());
+    if(await hashPin(pin)!==expected){
+      document.getElementById("appLockMessage").textContent="Incorrect PIN.";
+      document.getElementById("appLockPin").value="";
+      return;
+    }
+    sessionStorage.setItem("k22Unlocked:"+currentUser.id,"1");
+    gate.remove();
+  });
+
+  document.getElementById("appLockSignOut").addEventListener("click",async()=>{
+    await db.auth.signOut();
+  });
+  setTimeout(()=>document.getElementById("appLockPin")?.focus(),50);
+  icons();
+}
+
+async function openAccountSecurity() {
+  document.getElementById("profilePopover")?.remove();
+  if(!currentUser)return;
+
+  let backdrop=document.getElementById("accountSecurityBackdrop");
+  if(backdrop)backdrop.remove();
+
+  backdrop=document.createElement("div");
+  backdrop.id="accountSecurityBackdrop";
+  backdrop.className="event-modal-backdrop";
+  const verified=!!currentUser.email_confirmed_at;
+  backdrop.innerHTML=`
+    <div class="event-modal account-security-modal">
+      <div class="event-modal-head">
+        <div>
+          <small>K22 Account</small>
+          <h2>Account & Security</h2>
+        </div>
+        <button class="modal-close" id="closeAccountSecurity" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+
+      <div class="security-sections">
+        <section class="security-card">
+          <div class="security-card-head">
+            <span class="security-icon"><i data-lucide="mail-check"></i></span>
+            <div><h3>Email</h3><p>${esc(currentUser.email||"")}</p></div>
+            <span class="security-badge ${verified?"verified":"warning"}">${verified?"Verified":"Not verified"}</span>
+          </div>
+          ${verified ? "" : '<button class="soft-btn security-action" id="resendVerifyBtn"><i data-lucide="send"></i> Resend verification email</button>'}
+        </section>
+
+        <section class="security-card">
+          <div class="security-card-head">
+            <span class="security-icon"><i data-lucide="key-round"></i></span>
+            <div><h3>Password</h3><p>Use 8+ characters with a capital, lowercase, number, and symbol.</p></div>
+          </div>
+          <div class="security-password-form">
+            <input id="newAccountPassword" type="password" autocomplete="new-password" placeholder="New password">
+            <button class="soft-btn" id="changePasswordBtn">Change Password</button>
+            <button class="soft-btn" id="emailResetBtn">Email Reset Link</button>
+          </div>
+          <div class="security-inline-status" id="passwordSecurityStatus"></div>
+        </section>
+
+        <section class="security-card">
+          <div class="security-card-head">
+            <span class="security-icon"><i data-lucide="monitor-smartphone"></i></span>
+            <div><h3>Current Session</h3><p>${esc(deviceDescription())}</p></div>
+          </div>
+          <div class="security-session-grid">
+            <span><small>Last sign in</small><b>${esc(securityDate(currentUser.last_sign_in_at))}</b></span>
+            <span><small>Account created</small><b>${esc(securityDate(currentUser.created_at))}</b></span>
+          </div>
+          <button class="soft-btn danger-soft security-action" id="signOutEverywhereBtn"><i data-lucide="log-out"></i> Sign Out All Sessions</button>
+        </section>
+
+        <section class="security-card">
+          <div class="security-card-head">
+            <span class="security-icon"><i data-lucide="lock-keyhole"></i></span>
+            <div><h3>Device App Lock</h3><p>Optional local PIN for this browser/device. This is a screen lock, not encryption.</p></div>
+            <span class="security-badge ${appLockEnabled()?"verified":""}">${appLockEnabled()?"On":"Off"}</span>
+          </div>
+          <div class="security-lock-controls">
+            <input id="newAppLockPin" type="password" inputmode="numeric" maxlength="8" placeholder="4–8 digit PIN">
+            <button class="soft-btn" id="saveAppLockBtn">${appLockEnabled()?"Change PIN":"Enable Lock"}</button>
+            ${appLockEnabled()?'<button class="soft-btn" id="lockNowBtn">Lock Now</button><button class="soft-btn danger-soft" id="disableAppLockBtn">Turn Off</button>':""}
+          </div>
+          <div class="security-inline-status" id="appLockStatus"></div>
+        </section>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+  document.body.classList.add("modal-open");
+
+  const close=()=>{backdrop.remove();document.body.classList.remove("modal-open");};
+  document.getElementById("closeAccountSecurity")?.addEventListener("click",close);
+  backdrop.addEventListener("click",e=>{if(e.target===backdrop)close();});
+
+  document.getElementById("resendVerifyBtn")?.addEventListener("click",async()=>{
+    const {error}=await db.auth.resend({type:"signup",email:currentUser.email});
+    if(error)return toast(error.message,true);
+    toast("Verification email sent");
+  });
+
+  document.getElementById("emailResetBtn")?.addEventListener("click",async()=>{
+    const {error}=await db.auth.resetPasswordForEmail(currentUser.email,{redirectTo:location.origin+location.pathname});
+    if(error)return toast(error.message,true);
+    document.getElementById("passwordSecurityStatus").textContent="Reset email sent.";
+  });
+
+  document.getElementById("changePasswordBtn")?.addEventListener("click",async()=>{
+    const password=document.getElementById("newAccountPassword").value;
+    const problem=passwordProblem(password);
+    if(problem){
+      document.getElementById("passwordSecurityStatus").textContent=problem;
+      return;
+    }
+    const {error}=await db.auth.updateUser({password});
+    if(error)return document.getElementById("passwordSecurityStatus").textContent=error.message;
+    document.getElementById("newAccountPassword").value="";
+    document.getElementById("passwordSecurityStatus").textContent="Password changed.";
+  });
+
+  document.getElementById("signOutEverywhereBtn")?.addEventListener("click",async()=>{
+    if(!confirm("Sign out of K22 on all sessions?"))return;
+    const {error}=await db.auth.signOut({scope:"global"});
+    if(error)return toast(error.message,true);
+  });
+
+  document.getElementById("saveAppLockBtn")?.addEventListener("click",async()=>{
+    const pin=document.getElementById("newAppLockPin").value;
+    try{
+      await setAppLockPin(pin);
+      document.getElementById("appLockStatus").textContent="Device lock enabled.";
+      toast("App lock enabled");
+      close();
+      openAccountSecurity();
+    }catch(error){
+      document.getElementById("appLockStatus").textContent=error.message;
+    }
+  });
+
+  document.getElementById("lockNowBtn")?.addEventListener("click",()=>{
+    close();
+    lockApp();
+  });
+
+  document.getElementById("disableAppLockBtn")?.addEventListener("click",()=>{
+    if(!confirm("Turn off the device app lock?"))return;
+    disableAppLock();
+    toast("App lock turned off");
+    close();
+    openAccountSecurity();
+  });
+
+  icons();
+}
+
+function showPasswordRecovery() {
+  let gate=document.getElementById("passwordRecoveryGate");
+  if(gate)return;
+  gate=document.createElement("div");
+  gate.id="passwordRecoveryGate";
+  gate.className="auth-gate";
+  gate.innerHTML=`
+    <div class="auth-card">
+      <div class="auth-brand-icon"><i data-lucide="key-round"></i></div>
+      <h1>Choose a new password</h1>
+      <p>Your reset link is valid. Set your new K22 password below.</p>
+      <form class="auth-form" id="passwordRecoveryForm">
+        <label>New Password
+          <input id="recoveryPassword" type="password" autocomplete="new-password" minlength="8" required>
+        </label>
+        <div class="password-rules">8+ characters · capital · lowercase · number · symbol</div>
+        <button class="auth-submit" type="submit">Update Password</button>
+      </form>
+      <div class="auth-message" id="recoveryMessage"></div>
+    </div>`;
+  document.body.appendChild(gate);
+
+  document.getElementById("passwordRecoveryForm").addEventListener("submit",async e=>{
+    e.preventDefault();
+    const password=document.getElementById("recoveryPassword").value;
+    const problem=passwordProblem(password);
+    if(problem){
+      document.getElementById("recoveryMessage").textContent=problem;
+      document.getElementById("recoveryMessage").classList.add("error");
+      return;
+    }
+    const {error}=await db.auth.updateUser({password});
+    if(error){
+      document.getElementById("recoveryMessage").textContent=error.message;
+      document.getElementById("recoveryMessage").classList.add("error");
+      return;
+    }
+    gate.remove();
+    toast("Password updated");
+  });
+  icons();
+}
+
 function downloadTextFile(filename, content, mime="text/plain") {
   const blob=new Blob([content],{type:mime});
   const url=URL.createObjectURL(blob);
@@ -2963,10 +3292,12 @@ function bindHeaderButtons() {
         <b>Kiara</b>
         <small class="profile-email">${esc(currentUser?.email||"")}</small>
         <a href="categories.html"><i data-lucide="layout-grid"></i> Open Categories</a>
+        <button id="accountSecurityBtn"><i data-lucide="shield-check"></i> Account & Security</button>
         <button id="backupK22Btn"><i data-lucide="database-backup"></i> Backup & Export</button>
         ${isStandaloneApp() ? "" : '<button id="installK22Btn"><i data-lucide="download"></i> Install K22 App</button>'}
         <button class="signout-btn" id="signOutBtn"><i data-lucide="log-out"></i> Sign Out</button>`;
       document.body.appendChild(p);
+      document.getElementById("accountSecurityBtn")?.addEventListener("click",openAccountSecurity);
       document.getElementById("backupK22Btn")?.addEventListener("click",openBackupManager);
       document.getElementById("installK22Btn")?.addEventListener("click",installK22);
       document.getElementById("signOutBtn").addEventListener("click",async()=>{await db.auth.signOut();});
@@ -2998,6 +3329,7 @@ async function handleSession(session) {
     return;
   }
   showApp();
+  showAppLockGate();
   if (!navigator.onLine) {
     restoreOfflineCache();
     updateQueuedStatus();
@@ -3009,7 +3341,7 @@ async function handleSession(session) {
 }
 
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();closeTaskModal();closeBackupManager();document.getElementById("profilePopover")?.remove();}
+  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();closeTaskModal();closeBackupManager();document.getElementById("accountSecurityBackdrop")?.remove();document.body.classList.remove("modal-open");document.getElementById("profilePopover")?.remove();}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"&&document.getElementById("saveNoteBtn")){
     e.preventDefault();document.getElementById("saveNoteBtn").click();
   }
@@ -3032,14 +3364,27 @@ window.addEventListener("offline",()=>{
   makeAuthGate();
   const { data:{ session } } = await db.auth.getSession();
   await handleSession(session);
-  db.auth.onAuthStateChange(async (_event, nextSession) => {
-    await handleSession(nextSession);
+  db.auth.onAuthStateChange((event, nextSession) => {
+    if(event === "PASSWORD_RECOVERY") {
+      setTimeout(showPasswordRecovery,0);
+      return;
+    }
+    setTimeout(() => handleSession(nextSession), 0);
   });
   icons();
 })();
 
 
+let k22HiddenAt = null;
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    k22HiddenAt = Date.now();
+    return;
+  }
+  if (k22HiddenAt && Date.now()-k22HiddenAt > 5*60*1000 && appLockEnabled()) {
+    lockApp();
+  }
+  k22HiddenAt = null;
   if (!document.hidden) {
     updateDynamicDateUI();
     renderHomeCalendar();
