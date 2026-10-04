@@ -2557,6 +2557,162 @@ function categoryBlockField(block, content) {
   return wrap;
 }
 
+
+function isConvertibleCategoryBlock(type) {
+  return ["paragraph","heading1","heading2","heading3","bullet","numbered","checklist","quote","callout","link","code"].includes(type);
+}
+
+async function persistCategoryBlockOrder(rows) {
+  rows.forEach((row,index)=>row.position=index);
+  saveOfflineCache();
+
+  for(const row of rows){
+    const result=await commitMutation({
+      table:"category_blocks",
+      action:"update",
+      payload:{position:row.position},
+      match:{id:row.id}
+    },[row]);
+    if(result.error){
+      toast(result.error.message,true);
+      break;
+    }
+  }
+  updateCategoryDocumentMeta();
+}
+
+async function moveCategoryBlock(block,direction) {
+  const rows=blocksForActiveCategory();
+  const index=rows.findIndex(x=>x.id===block.id);
+  const nextIndex=index+direction;
+  if(index<0||nextIndex<0||nextIndex>=rows.length)return;
+  const [moved]=rows.splice(index,1);
+  rows.splice(nextIndex,0,moved);
+  await persistCategoryBlockOrder(rows);
+  renderCategoryBlocks();
+  setTimeout(()=>document.querySelector('[data-block-id="'+block.id+'"]')?.scrollIntoView({block:"nearest"}),20);
+}
+
+async function moveCategoryBlockTo(block,targetBlock,before=true) {
+  if(!block||!targetBlock||block.id===targetBlock.id)return;
+  const rows=blocksForActiveCategory();
+  const from=rows.findIndex(x=>x.id===block.id);
+  if(from<0)return;
+  const [moved]=rows.splice(from,1);
+  let target=rows.findIndex(x=>x.id===targetBlock.id);
+  if(target<0)return;
+  if(!before)target+=1;
+  rows.splice(target,0,moved);
+  await persistCategoryBlockOrder(rows);
+  renderCategoryBlocks();
+}
+
+async function duplicateCategoryBlock(block) {
+  const rows=blocksForActiveCategory();
+  const index=rows.findIndex(x=>x.id===block.id);
+  if(index<0)return;
+
+  const clone={
+    id:crypto.randomUUID(),
+    user_id:currentUser.id,
+    category:activeCategory,
+    type:block.type,
+    content:structuredClone(normalizeBlockContent(block)),
+    settings:structuredClone(block.settings||{}),
+    position:index+1,
+    created_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  };
+
+  rows.splice(index+1,0,clone);
+  state.categoryBlocks=state.categoryBlocks.filter(x=>x.category!==activeCategory).concat(rows);
+  saveOfflineCache();
+
+  const result=await commitMutation({
+    table:"category_blocks",
+    action:"insert",
+    payload:clone
+  },[clone]);
+
+  if(result.error){
+    state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==clone.id);
+    saveOfflineCache();
+    return toast(result.error.message,true);
+  }
+  if(result.data?.[0])Object.assign(clone,result.data[0]);
+
+  await persistCategoryBlockOrder(rows);
+  renderCategoryBlocks();
+  toast("Block duplicated");
+}
+
+async function convertCategoryBlock(block,nextType) {
+  if(!isConvertibleCategoryBlock(block.type)||!isConvertibleCategoryBlock(nextType))return;
+  const content=normalizeBlockContent(block);
+  const nextContent={...content};
+
+  if(nextType==="checklist" && nextContent.checked===undefined)nextContent.checked=false;
+  if(nextType!=="checklist")delete nextContent.checked;
+  if(nextType!=="link")delete nextContent.url;
+
+  block.type=nextType;
+  block.content=nextContent;
+  await updateCategoryBlock(block,{type:nextType,content:nextContent});
+  renderCategoryBlocks();
+  setTimeout(()=>document.querySelector('[data-block-id="'+block.id+'"] .category-block-input')?.focus(),30);
+}
+
+function closeCategoryBlockMenus(except=null) {
+  document.querySelectorAll(".category-block-action-menu").forEach(menu=>{
+    if(menu!==except)menu.classList.add("hidden");
+  });
+}
+
+function categoryBlockActionMenu(block,index,total) {
+  const menu=document.createElement("div");
+  menu.className="category-block-action-menu hidden";
+
+  const convertItems=isConvertibleCategoryBlock(block.type)
+    ? Object.entries(CATEGORY_BLOCK_TYPES)
+        .filter(([type])=>isConvertibleCategoryBlock(type)&&type!==block.type)
+        .map(([type,meta])=>'<button type="button" data-convert="'+type+'"><i data-lucide="'+meta.icon+'"></i><span>'+esc(meta.label)+'</span></button>')
+        .join("")
+    : "";
+
+  menu.innerHTML=`
+    <button type="button" data-action="up" ${index===0?"disabled":""}><i data-lucide="arrow-up"></i><span>Move up</span></button>
+    <button type="button" data-action="down" ${index===total-1?"disabled":""}><i data-lucide="arrow-down"></i><span>Move down</span></button>
+    <button type="button" data-action="duplicate"><i data-lucide="copy"></i><span>Duplicate</span></button>
+    ${convertItems ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Turn into</div><div class="category-block-convert-list">'+convertItems+'</div>' : ""}
+    <div class="category-block-menu-separator"></div>
+    <button type="button" data-action="delete" class="danger"><i data-lucide="trash-2"></i><span>Delete</span></button>
+  `;
+
+  menu.addEventListener("click",async e=>{
+    const button=e.target.closest("button");
+    if(!button||button.disabled)return;
+    menu.classList.add("hidden");
+
+    if(button.dataset.action==="up")return moveCategoryBlock(block,-1);
+    if(button.dataset.action==="down")return moveCategoryBlock(block,1);
+    if(button.dataset.action==="duplicate")return duplicateCategoryBlock(block);
+    if(button.dataset.action==="delete"){
+      if(confirm("Delete this block?"))return deleteCategoryBlock(block);
+      return;
+    }
+    if(button.dataset.convert)return convertCategoryBlock(block,button.dataset.convert);
+  });
+
+  return menu;
+}
+
+document.addEventListener("click",e=>{
+  if(!e.target.closest(".category-block-actions")){
+    closeCategoryBlockMenus();
+  }
+});
+
+
 function renderCategoryBlocks() {
   const canvas=document.getElementById("categoryBlockCanvas");
   const empty=document.getElementById("categoryBlockEmpty");
@@ -2580,25 +2736,74 @@ function renderCategoryBlocks() {
   empty?.classList.toggle("hidden",rows.length>0);
   if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
 
-  rows.forEach(block=>{
+  rows.forEach((block,index)=>{
     const type=CATEGORY_BLOCK_TYPES[block.type]||CATEGORY_BLOCK_TYPES.paragraph;
     const content=normalizeBlockContent(block);
     const row=document.createElement("div");
     row.className="category-block category-block-"+block.type+(content.checked?" checked":"");
     row.dataset.blockId=block.id;
+    row.draggable=true;
 
     const rail=document.createElement("div");
-    rail.className="category-block-rail";
+    rail.className="category-block-rail category-block-actions";
     rail.innerHTML=
-      '<span class="category-block-type-icon" title="'+esc(type.label)+'"><i data-lucide="'+type.icon+'"></i></span>'+
-      '<button type="button" class="category-block-delete" aria-label="Delete block"><i data-lucide="trash-2"></i></button>';
+      '<button type="button" class="category-block-drag" aria-label="Drag block" title="Drag to reorder"><i data-lucide="grip-vertical"></i></button>'+
+      '<button type="button" class="category-block-more" aria-label="Block options"><i data-lucide="ellipsis"></i></button>';
+
+    const actionMenu=categoryBlockActionMenu(block,index,rows.length);
+    rail.appendChild(actionMenu);
 
     const field=categoryBlockField(block,content);
     row.appendChild(rail);
     row.appendChild(field);
 
-    rail.querySelector(".category-block-delete").addEventListener("click",()=>{
-      if(confirm("Delete this block?"))deleteCategoryBlock(block);
+    rail.querySelector(".category-block-more").addEventListener("click",e=>{
+      e.stopPropagation();
+      const wasHidden=actionMenu.classList.contains("hidden");
+      closeCategoryBlockMenus(actionMenu);
+      actionMenu.classList.toggle("hidden",!wasHidden);
+      icons();
+    });
+
+    row.addEventListener("dragstart",e=>{
+      if(window.matchMedia("(max-width: 650px)").matches){
+        e.preventDefault();
+        return;
+      }
+      row.classList.add("dragging");
+      e.dataTransfer.effectAllowed="move";
+      e.dataTransfer.setData("text/plain",block.id);
+    });
+
+    row.addEventListener("dragend",()=>{
+      row.classList.remove("dragging");
+      canvas.querySelectorAll(".drag-over-before,.drag-over-after").forEach(x=>x.classList.remove("drag-over-before","drag-over-after"));
+    });
+
+    row.addEventListener("dragover",e=>{
+      if(window.matchMedia("(max-width: 650px)").matches)return;
+      e.preventDefault();
+      if(!e.dataTransfer.types.includes("text/plain"))return;
+      const rect=row.getBoundingClientRect();
+      const before=e.clientY<rect.top+rect.height/2;
+      row.classList.toggle("drag-over-before",before);
+      row.classList.toggle("drag-over-after",!before);
+      e.dataTransfer.dropEffect="move";
+    });
+
+    row.addEventListener("dragleave",()=>{
+      row.classList.remove("drag-over-before","drag-over-after");
+    });
+
+    row.addEventListener("drop",async e=>{
+      if(window.matchMedia("(max-width: 650px)").matches)return;
+      e.preventDefault();
+      const draggedId=e.dataTransfer.getData("text/plain");
+      const dragged=rows.find(x=>x.id===draggedId);
+      if(!dragged||dragged.id===block.id)return;
+      const rect=row.getBoundingClientRect();
+      const before=e.clientY<rect.top+rect.height/2;
+      await moveCategoryBlockTo(dragged,block,before);
     });
 
     canvas.appendChild(row);
