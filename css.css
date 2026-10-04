@@ -654,3 +654,55 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   .home-capture-form{grid-template-columns:1fr}
   .home-capture-form button{justify-content:center}
 }
+
+
+/* Universal search */
+.universal-search-panel{
+  position:fixed;z-index:140;width:min(520px,calc(100vw - 24px));
+  max-height:min(560px,70vh);overflow:auto;
+  background:#fffdfb;border:1px solid rgba(0,0,0,.08);
+  border-radius:18px;box-shadow:0 22px 70px rgba(0,0,0,.2);
+  padding:8px
+}
+.universal-search-head{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 9px 9px;border-bottom:1px solid rgba(0,0,0,.06);
+  font-size:11px;color:#777;text-transform:uppercase;letter-spacing:.06em
+}
+.universal-search-head b{
+  font-size:10px;color:#999;font-weight:600;text-transform:none;letter-spacing:0
+}
+.universal-search-results{display:flex;flex-direction:column;gap:4px;padding-top:5px}
+.universal-search-result{
+  width:100%;display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;gap:10px;border:0;background:transparent;
+  border-radius:12px;padding:9px;text-align:left
+}
+.universal-search-result:hover{background:#f6f1ec}
+.universal-result-icon{
+  width:34px;height:34px;border-radius:10px;background:#f1ece7;
+  display:grid;place-items:center;color:#555
+}
+.universal-result-icon svg{width:16px;height:16px}
+.universal-result-copy{display:flex;flex-direction:column;min-width:0}
+.universal-result-copy small{
+  font-size:9px;text-transform:uppercase;letter-spacing:.06em;color:#999
+}
+.universal-result-copy b{
+  margin-top:1px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.universal-result-copy em{
+  margin-top:2px;font-size:10.5px;font-style:normal;color:#777;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.universal-result-arrow{width:14px;height:14px;color:#aaa}
+.universal-search-empty{
+  min-height:150px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;color:#888
+}
+.universal-search-empty svg{width:28px;height:28px;margin-bottom:7px}
+.universal-search-empty b{font-size:12px;color:#666}
+.universal-search-empty span{font-size:10.5px;margin-top:3px}
+@media(max-width:820px){
+  .universal-search-panel{left:12px!important;right:12px;width:auto!important}
+}
