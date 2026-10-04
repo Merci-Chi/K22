@@ -218,6 +218,133 @@ async function safe(queryPromise) {
   return data;
 }
 
+const OFFLINE_QUEUE_KEY = "k22OfflineQueue";
+const OFFLINE_CACHE_PREFIX = "k22OfflineState:";
+
+function offlineCacheKey() {
+  return currentUser ? OFFLINE_CACHE_PREFIX + currentUser.id : null;
+}
+
+function saveOfflineCache() {
+  const key = offlineCacheKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify({ state, saved_at: Date.now() }));
+  } catch (error) {
+    console.warn("Could not save offline cache", error);
+  }
+}
+
+function restoreOfflineCache() {
+  const key = offlineCacheKey();
+  if (!key) return false;
+  try {
+    const cached = JSON.parse(localStorage.getItem(key) || "null");
+    if (!cached?.state) return false;
+    state = cached.state;
+    renderEverything();
+    return true;
+  } catch (error) {
+    console.warn("Could not restore offline cache", error);
+    return false;
+  }
+}
+
+function getOfflineQueue() {
+  try {
+    return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function saveOfflineQueue(queue) {
+  localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
+  updateQueuedStatus();
+}
+
+function updateQueuedStatus() {
+  const count = getOfflineQueue().filter(x => !currentUser || x.user_id === currentUser.id).length;
+  if (!navigator.onLine) {
+    setSyncStatus(count ? `Offline · ${count} queued` : "Offline", true);
+  } else if (count) {
+    setSyncStatus(`${count} change${count === 1 ? "" : "s"} waiting to sync`);
+  }
+}
+
+function queueMutation(mutation) {
+  const queue = getOfflineQueue();
+  queue.push({
+    queue_id: crypto.randomUUID(),
+    user_id: currentUser?.id || null,
+    created_at: Date.now(),
+    ...mutation
+  });
+  saveOfflineQueue(queue);
+  saveOfflineCache();
+}
+
+async function runMutation(mutation) {
+  const table = db.from(mutation.table);
+  let query;
+
+  if (mutation.action === "insert") {
+    query = table.insert(mutation.payload).select();
+  } else if (mutation.action === "update") {
+    query = table.update(mutation.payload).eq("id", mutation.match.id).select();
+  } else if (mutation.action === "delete") {
+    query = table.delete().eq("id", mutation.match.id);
+  } else if (mutation.action === "delete_many") {
+    query = table.delete().in("id", mutation.match.ids);
+  } else if (mutation.action === "upsert") {
+    query = table.upsert(mutation.payload, mutation.onConflict ? { onConflict: mutation.onConflict } : undefined).select();
+  } else {
+    throw new Error("Unknown offline mutation");
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data;
+}
+
+async function commitMutation(mutation, optimisticData = null) {
+  if (!navigator.onLine) {
+    queueMutation(mutation);
+    return { data: optimisticData, queued: true, error: null };
+  }
+
+  try {
+    const data = await runMutation(mutation);
+    saveOfflineCache();
+    return { data, queued: false, error: null };
+  } catch (error) {
+    return { data: null, queued: false, error };
+  }
+}
+
+async function flushOfflineQueue() {
+  if (!navigator.onLine || !currentUser) return;
+  let queue = getOfflineQueue();
+  const mine = queue.filter(x => x.user_id === currentUser.id);
+  if (!mine.length) return;
+
+  setSyncStatus(`Syncing ${mine.length} queued change${mine.length === 1 ? "" : "s"}...`);
+
+  for (const mutation of mine) {
+    try {
+      await runMutation(mutation);
+      queue = queue.filter(x => x.queue_id !== mutation.queue_id);
+      saveOfflineQueue(queue);
+    } catch (error) {
+      console.error("Queued sync failed", mutation, error);
+      setSyncStatus("Queued sync needs attention", true);
+      return;
+    }
+  }
+
+  setSyncStatus("Queued changes synced");
+}
+
 async function loadAll() {
   if (!currentUser) return;
   setSyncStatus("Syncing...");
@@ -243,11 +370,17 @@ async function loadAll() {
     await migrateLocalStorageIfNeeded();
     await seedRoutineIfNeeded();
     renderEverything();
+    saveOfflineCache();
     setSyncStatus("Synced");
   } catch (error) {
     console.error(error);
-    setSyncStatus("Sync error", true);
-    toast(error.message || "Could not sync", true);
+    if (restoreOfflineCache()) {
+      updateQueuedStatus();
+      toast("Showing saved offline data");
+    } else {
+      setSyncStatus("Sync error", true);
+      toast(error.message || "Could not sync", true);
+    }
   }
 }
 
@@ -369,13 +502,19 @@ function renderTaskSection(listId, formId, inputId, clearId, scope) {
     row.querySelector("input").addEventListener("change", async e => {
       task.done = e.target.checked;
       row.classList.toggle("done", task.done);
-      const { error } = await db.from("tasks").update({ done: task.done }).eq("id", task.id);
-      if (error) toast(error.message, true);
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"tasks", action:"update", payload:{ done:task.done }, match:{ id:task.id }
+      }, [task]);
+      if (result.error) toast(result.error.message, true);
     });
     row.querySelector(".task-delete").addEventListener("click", async () => {
-      const { error } = await db.from("tasks").delete().eq("id", task.id);
-      if (error) return toast(error.message, true);
       state.tasks = state.tasks.filter(x => x.id !== task.id);
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"tasks", action:"delete", match:{ id:task.id }
+      });
+      if (result.error) return toast(result.error.message, true);
       renderTaskSection(listId, formId, inputId, clearId, scope);
     });
     list.appendChild(row);
@@ -390,11 +529,20 @@ function renderTaskSection(listId, formId, inputId, clearId, scope) {
       const text = input.value.trim();
       if (!text) return;
       const position = state.tasks.filter(x => x.scope === scope).length;
-      const { data, error } = await db.from("tasks").insert({
-        user_id: currentUser.id, scope, text, done: false, position
-      }).select().single();
-      if (error) return toast(error.message, true);
-      state.tasks.push(data);
+      const localTask = {
+        id: crypto.randomUUID(), user_id: currentUser.id, scope, text, done:false, position,
+        created_at:new Date().toISOString(), updated_at:new Date().toISOString()
+      };
+      state.tasks.push(localTask);
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"tasks", action:"insert", payload:localTask
+      }, [localTask]);
+      if (result.error) {
+        state.tasks = state.tasks.filter(x => x.id !== localTask.id);
+        saveOfflineCache();
+        return toast(result.error.message, true);
+      }
       input.value = "";
       renderTaskSection(listId, formId, inputId, clearId, scope);
       toast("Task added");
@@ -407,9 +555,12 @@ function renderTaskSection(listId, formId, inputId, clearId, scope) {
     clear.addEventListener("click", async () => {
       const ids = state.tasks.filter(x => x.scope === scope && x.done).map(x => x.id);
       if (!ids.length) return toast("No completed tasks");
-      const { error } = await db.from("tasks").delete().in("id", ids);
-      if (error) return toast(error.message, true);
       state.tasks = state.tasks.filter(x => !ids.includes(x.id));
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"tasks", action:"delete_many", match:{ ids }
+      });
+      if (result.error) return toast(result.error.message, true);
       renderTaskSection(listId, formId, inputId, clearId, scope);
       toast("Completed tasks cleared");
     });
@@ -759,8 +910,11 @@ function renderRoutine() {
       box.dataset.bound = "1";
       box.addEventListener("change", async () => {
         row.done = box.checked;
-        const { error } = await db.from("routine_items").update({ done: row.done }).eq("id", row.id);
-        if (error) toast(error.message, true);
+        saveOfflineCache();
+        const result = await commitMutation({
+          table:"routine_items", action:"update", payload:{ done:row.done }, match:{ id:row.id }
+        }, [row]);
+        if (result.error) toast(result.error.message, true);
       });
     }
   });
@@ -784,9 +938,13 @@ async function saveFocus(showToast = false) {
   const focus = document.getElementById("focusNote");
   if (!focus) return;
   const row = { user_id: currentUser.id, quick_focus: focus.value };
-  const { data, error } = await db.from("user_settings").upsert(row).select().single();
-  if (error) return toast(error.message, true);
-  state.settings = data;
+  state.settings = { ...(state.settings || {}), ...row, updated_at:new Date().toISOString() };
+  saveOfflineCache();
+  const result = await commitMutation({
+    table:"user_settings", action:"upsert", payload:row, onConflict:"user_id"
+  }, [state.settings]);
+  if (result.error) return toast(result.error.message, true);
+  if (result.data?.[0]) state.settings = result.data[0];
   if (showToast) toast("Focus saved");
 }
 
@@ -815,12 +973,22 @@ function renderNotesPage() {
   if (newBtn && !newBtn.dataset.bound) {
     newBtn.dataset.bound = "1";
     newBtn.addEventListener("click", async () => {
-      const { data, error } = await db.from("notes").insert({
-        user_id: currentUser.id, title:"Untitled note", body:""
-      }).select().single();
-      if (error) return toast(error.message, true);
-      state.notes.unshift(data);
-      activeNoteId = data.id;
+      const localNote = {
+        id:crypto.randomUUID(), user_id:currentUser.id, title:"Untitled note", body:"",
+        created_at:new Date().toISOString(), updated_at:new Date().toISOString()
+      };
+      state.notes.unshift(localNote);
+      activeNoteId = localNote.id;
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"notes", action:"insert", payload:localNote
+      }, [localNote]);
+      if (result.error) {
+        state.notes = state.notes.filter(x => x.id !== localNote.id);
+        activeNoteId = state.notes[0]?.id || null;
+        saveOfflineCache();
+        return toast(result.error.message, true);
+      }
       renderNotesPage();
       document.getElementById("noteTitle")?.focus();
     });
@@ -832,9 +1000,13 @@ function renderNotesPage() {
     if (!note) return;
     note.title = title.value.trim() || "Untitled note";
     note.body = body.value;
-    const { data, error } = await db.from("notes").update({ title:note.title, body:note.body }).eq("id",note.id).select().single();
-    if (error) return toast(error.message, true);
-    Object.assign(note, data);
+    note.updated_at = new Date().toISOString();
+    saveOfflineCache();
+    const result = await commitMutation({
+      table:"notes", action:"update", payload:{ title:note.title, body:note.body }, match:{ id:note.id }
+    }, [note]);
+    if (result.error) return toast(result.error.message, true);
+    if (result.data?.[0]) Object.assign(note, result.data[0]);
     if (notify) toast("Note saved");
   };
 
@@ -856,9 +1028,13 @@ function renderNotesPage() {
     deleteBtn.dataset.bound="1";
     deleteBtn.addEventListener("click", async () => {
       if (!activeNoteId || !confirm("Delete this note?")) return;
-      const { error } = await db.from("notes").delete().eq("id",activeNoteId);
-      if (error) return toast(error.message,true);
-      state.notes = state.notes.filter(x => x.id !== activeNoteId);
+      const deletingId = activeNoteId;
+      state.notes = state.notes.filter(x => x.id !== deletingId);
+      saveOfflineCache();
+      const result = await commitMutation({
+        table:"notes", action:"delete", match:{ id:deletingId }
+      });
+      if (result.error) return toast(result.error.message,true);
       activeNoteId = state.notes[0]?.id || null;
       renderNotesPage();
       toast("Note deleted");
@@ -902,11 +1078,20 @@ function openCategory(category) {
       const text=input.value.trim();
       if(!text || !activeCategory) return;
       const position=state.categoryItems.filter(x=>x.category===activeCategory).length;
-      const {data,error}=await db.from("category_items").insert({
-        user_id:currentUser.id,category:activeCategory,text,done:false,position
-      }).select().single();
-      if(error)return toast(error.message,true);
-      state.categoryItems.push(data);
+      const localItem={
+        id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,text,done:false,position,
+        created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+      };
+      state.categoryItems.push(localItem);
+      saveOfflineCache();
+      const result=await commitMutation({
+        table:"category_items",action:"insert",payload:localItem
+      },[localItem]);
+      if(result.error){
+        state.categoryItems=state.categoryItems.filter(x=>x.id!==localItem.id);
+        saveOfflineCache();
+        return toast(result.error.message,true);
+      }
       input.value="";
       renderCategoryItems();
     });
@@ -949,20 +1134,32 @@ function renderCategoryItems() {
     row.querySelector("input").addEventListener("change",async e=>{
       item.done=e.target.checked;
       row.classList.toggle("done",item.done);
-      const {error}=await db.from("category_items").update({done:item.done}).eq("id",item.id);
-      if(error)toast(error.message,true);
+      saveOfflineCache();
+      const result=await commitMutation({
+        table:"category_items",action:"update",payload:{done:item.done},match:{id:item.id}
+      },[item]);
+      if(result.error)toast(result.error.message,true);
     });
     row.querySelector(".category-item-edit").addEventListener("click",async()=>{
       const next=prompt("Edit item:",item.text);
       if(next===null||!next.trim())return;
-      const {data,error}=await db.from("category_items").update({text:next.trim()}).eq("id",item.id).select().single();
-      if(error)return toast(error.message,true);
-      Object.assign(item,data);renderCategoryItems();
+      item.text=next.trim();
+      item.updated_at=new Date().toISOString();
+      saveOfflineCache();
+      const result=await commitMutation({
+        table:"category_items",action:"update",payload:{text:item.text},match:{id:item.id}
+      },[item]);
+      if(result.error)return toast(result.error.message,true);
+      if(result.data?.[0])Object.assign(item,result.data[0]);
+      renderCategoryItems();
     });
     row.querySelector(".category-item-delete").addEventListener("click",async()=>{
-      const {error}=await db.from("category_items").delete().eq("id",item.id);
-      if(error)return toast(error.message,true);
       state.categoryItems=state.categoryItems.filter(x=>x.id!==item.id);
+      saveOfflineCache();
+      const result=await commitMutation({
+        table:"category_items",action:"delete",match:{id:item.id}
+      });
+      if(result.error)return toast(result.error.message,true);
       renderCategoryItems();
     });
     holder.appendChild(row);
@@ -976,10 +1173,19 @@ async function saveCategoryNotes(notify=false) {
   if(!activeCategory)return;
   const notes=document.getElementById("modalNotes")?.value||"";
   const row={user_id:currentUser.id,category:activeCategory,notes};
-  const {data,error}=await db.from("category_notes").upsert(row,{onConflict:"user_id,category"}).select().single();
-  if(error)return toast(error.message,true);
   const idx=state.categoryNotes.findIndex(x=>x.category===activeCategory);
-  if(idx>=0)state.categoryNotes[idx]=data;else state.categoryNotes.push(data);
+  const localRow=idx>=0?{...state.categoryNotes[idx],...row,updated_at:new Date().toISOString()}:
+    {id:crypto.randomUUID(),...row,created_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+  if(idx>=0)state.categoryNotes[idx]=localRow;else state.categoryNotes.push(localRow);
+  saveOfflineCache();
+  const result=await commitMutation({
+    table:"category_notes",action:"upsert",payload:localRow,onConflict:"user_id,category"
+  },[localRow]);
+  if(result.error)return toast(result.error.message,true);
+  if(result.data?.[0]){
+    const nextIdx=state.categoryNotes.findIndex(x=>x.category===activeCategory);
+    if(nextIdx>=0)state.categoryNotes[nextIdx]=result.data[0];
+  }
   if(notify)toast(activeCategory+" notes saved");
 }
 
@@ -1135,7 +1341,13 @@ async function handleSession(session) {
     return;
   }
   showApp();
-  await loadAll();
+  if (!navigator.onLine) {
+    restoreOfflineCache();
+    updateQueuedStatus();
+  } else {
+    await flushOfflineQueue();
+    await loadAll();
+  }
   startRealtime();
 }
 
@@ -1146,8 +1358,15 @@ document.addEventListener("keydown",e=>{
   }
 });
 
-window.addEventListener("online",()=>{setSyncStatus("Back online");loadAll();});
-window.addEventListener("offline",()=>setSyncStatus("Offline",true));
+window.addEventListener("online",async()=>{
+  setSyncStatus("Back online");
+  await flushOfflineQueue();
+  await loadAll();
+});
+window.addEventListener("offline",()=>{
+  saveOfflineCache();
+  updateQueuedStatus();
+});
 
 (async function init(){
   registerK22PWA();
