@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="css.css" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#292623" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="K22" />
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <title>Category — K22</title>
+</head>
+<body data-page="category">
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand-mark"><i data-lucide="cat"></i></div>
+      <nav class="side-nav">
+        <a class="nav-item" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+        <a class="nav-item" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+        <a class="nav-item" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+        <a class="nav-item" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+        <a class="nav-item active" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+      </nav>
+    </aside>
+
+    <main class="main-content category-document-page">
+      <header class="topbar category-page-topbar">
+        <div class="category-page-nav">
+          <a class="category-back-btn" href="categories.html"><i data-lucide="arrow-left"></i><span>Categories</span></a>
+        </div>
+        <div class="top-actions">
+          <label class="search-wrap">
+            <i data-lucide="search"></i>
+            <input id="globalSearch" type="search" placeholder="Search K22..." />
+          </label>
+          <button class="round-btn" aria-label="Notifications"><i data-lucide="bell"></i><span class="notif-dot"></span></button>
+          <button class="avatar-btn" aria-label="Profile"><i data-lucide="user-round"></i></button>
+        </div>
+      </header>
+
+      <article class="category-document">
+        <section class="category-cover" id="categoryCover">
+          <div class="category-cover-pattern"></div>
+          <div class="category-cover-icon" id="categoryPageIcon"><i data-lucide="folder-open"></i></div>
+        </section>
+
+        <header class="category-document-header">
+          <div class="category-document-kicker">K22 Category</div>
+          <h1 id="categoryPageTitle">Category</h1>
+          <p id="categoryPageDescription">Your space for everything that belongs here.</p>
+          <div class="category-page-meta">
+            <span><i data-lucide="clock-3"></i><span id="categoryLastEdited">Ready</span></span>
+            <span><i data-lucide="list-checks"></i><span id="categoryItemCount">0 items</span></span>
+          </div>
+        </header>
+
+        <section class="category-document-body">
+          <section class="category-page-section">
+            <div class="category-section-title">
+              <div>
+                <small>Collection</small>
+                <h2>Items</h2>
+              </div>
+            </div>
+
+            <form id="categoryItemForm" class="category-entry-form category-page-entry">
+              <div class="category-quick-add">
+                <i data-lucide="plus"></i>
+                <input id="categoryItemInput" type="text" placeholder="Add something..." />
+                <button id="categorySubmitBtn" type="submit">Add</button>
+              </div>
+              <div id="categorySpecialFields" class="category-special-fields hidden"></div>
+              <button type="button" id="cancelCategoryEdit" class="category-cancel-edit hidden">Cancel editing</button>
+            </form>
+
+            <div id="categoryItems" class="category-items category-page-items"></div>
+            <div id="categoryEmpty" class="category-empty">
+              <i data-lucide="inbox"></i>
+              <b>Nothing here yet</b>
+              <span>Add your first item above.</span>
+            </div>
+          </section>
+
+          <section class="category-page-section category-page-notes">
+            <div class="category-section-title">
+              <div>
+                <small>Writing space</small>
+                <h2>Notes</h2>
+              </div>
+              <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
+            </div>
+            <textarea id="modalNotes" placeholder="Write notes for this category..."></textarea>
+          </section>
+
+          <section class="category-page-section category-page-files">
+            <div class="attachment-head">
+              <div>
+                <small>Reference</small>
+                <h2><i data-lucide="paperclip"></i> Files &amp; Photos</h2>
+                <span id="categoryAttachmentCount">0 files</span>
+              </div>
+              <label class="attachment-upload-btn">
+                <input id="categoryAttachmentInput" type="file" multiple hidden>
+                <i data-lucide="upload"></i> Add File
+              </label>
+            </div>
+            <div id="categoryAttachments" class="attachment-list"></div>
+          </section>
+        </section>
+      </article>
+    </main>
+
+    <nav class="mobile-nav">
+      <a href="index.html"><i data-lucide="house"></i><span>Home</span></a>
+      <a href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+      <a href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+      <a href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+      <a class="active" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+    </nav>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js.js"></script>
+</body>
+</html>
