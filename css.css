@@ -760,3 +760,46 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 }
 .note-attachments{margin-bottom:14px}
 .category-attachments{margin-top:18px}
+
+
+/* Backup and export */
+.backup-modal{width:min(860px,96vw)}
+.backup-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px}
+.backup-card{
+  border:1px solid rgba(0,0,0,.065);background:#faf7f3;border-radius:17px;
+  padding:15px;display:flex;flex-direction:column;gap:11px
+}
+.backup-card h3{margin:0;font-family:Georgia,serif;font-size:19px}
+.backup-card p{margin:4px 0 0;font-size:11px;line-height:1.45;color:#777}
+.backup-card-icon{
+  width:40px;height:40px;border-radius:12px;background:#eee7df;
+  display:grid;place-items:center
+}
+.backup-card-icon svg{width:18px;height:18px}
+.backup-card .save-btn{
+  width:100%;display:flex;align-items:center;justify-content:center;gap:7px
+}
+.backup-card .save-btn svg,.backup-inline button svg{width:14px;height:14px}
+.backup-inline{display:grid;grid-template-columns:1fr auto;gap:8px}
+.backup-inline select{
+  min-width:0;border:1px solid rgba(0,0,0,.09);background:#fff;
+  border-radius:11px;padding:9px 10px;outline:0
+}
+.backup-restore-card{grid-column:1/-1}
+.backup-file-picker{
+  border:1px dashed rgba(0,0,0,.18);background:#fff;border-radius:13px;
+  padding:13px;display:flex;align-items:center;justify-content:center;gap:7px;
+  cursor:pointer;font-size:12px;font-weight:700
+}
+.backup-file-picker svg{width:16px;height:16px}
+.backup-status{min-height:16px;font-size:10.5px;color:#777}
+.backup-note{
+  margin-top:13px;padding:10px 12px;border-radius:12px;background:#f4f0eb;
+  display:flex;align-items:flex-start;gap:8px;font-size:10.5px;line-height:1.45;color:#666
+}
+.backup-note svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
+@media(max-width:700px){
+  .backup-grid{grid-template-columns:1fr}
+  .backup-restore-card{grid-column:auto}
+  .backup-inline{grid-template-columns:1fr}
+}
