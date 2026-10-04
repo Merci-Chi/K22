@@ -144,52 +144,33 @@ function rememberedEmail() {
 }
 
 
+
 function makeAuthGate() {
   if (document.getElementById("authGate")) return;
+
   const gate = document.createElement("div");
   gate.id = "authGate";
   gate.className = "auth-gate";
   gate.innerHTML = `
-    <div class="auth-card">
-      <div class="auth-brand-icon"><i data-lucide="shield-check"></i></div>
+    <div class="auth-card single-user-auth">
+      <div class="auth-brand-icon"><i data-lucide="lock-keyhole"></i></div>
       <h1>K22</h1>
-      <p>Private access only. Accounts are created by the administrator.</p>
+      <p>Private organizer</p>
 
       <form class="auth-form" id="authForm">
-        <label>Email
-          <input id="authEmail" type="email" autocomplete="email" required>
-        </label>
         <label>Password
           <div class="password-field">
-            <input id="authPassword" type="password" autocomplete="current-password" minlength="8" required>
+            <input id="authPassword" type="password" autocomplete="current-password" required autofocus>
             <button type="button" class="password-toggle" id="authPasswordToggle" aria-label="Show password"><i data-lucide="eye"></i></button>
           </div>
         </label>
 
-        <label class="remember-email-row">
-          <input id="rememberEmailCheck" type="checkbox">
-          <span>Save email for login on this device</span>
-        </label>
-
-        <button class="auth-submit" id="authSubmit" type="submit">Sign In</button>
-
-        <div class="manual-access-note">
-          <i data-lucide="user-round-cog"></i>
-          <span>Need access or a password reset? Contact the K22 administrator.</span>
-        </div>
+        <button class="auth-submit" id="authSubmit" type="submit">Unlock K22</button>
       </form>
 
       <div class="auth-message" id="authMessage"></div>
     </div>`;
   document.body.appendChild(gate);
-
-  const saved=rememberedEmail();
-  const emailInput=document.getElementById("authEmail");
-  const remember=document.getElementById("rememberEmailCheck");
-  if(saved){
-    emailInput.value=saved;
-    remember.checked=true;
-  }
 
   document.getElementById("authPasswordToggle")?.addEventListener("click",()=>{
     const input=document.getElementById("authPassword");
@@ -202,26 +183,39 @@ function makeAuthGate() {
 
   document.getElementById("authForm").addEventListener("submit", async e => {
     e.preventDefault();
-    const email = emailInput.value.trim();
     const password = document.getElementById("authPassword").value;
     const submit = document.getElementById("authSubmit");
 
-    if(remember.checked)localStorage.setItem("k22RememberedEmail",email);
-    else localStorage.removeItem("k22RememberedEmail");
-
     submit.disabled = true;
-    submit.textContent = "Signing In...";
+    submit.textContent = "Unlocking...";
 
-    const { error } = await db.auth.signInWithPassword({ email, password });
+    try {
+      const response = await fetch(SUPABASE_URL + "/functions/v1/k22-login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": SUPABASE_KEY
+        },
+        body: JSON.stringify({ password })
+      });
 
-    submit.disabled = false;
-    submit.textContent = "Sign In";
+      const payload = await response.json().catch(()=>({}));
+      if(!response.ok || !payload.token_hash) {
+        throw new Error(payload.error || "Incorrect password.");
+      }
 
-    if (error) {
-      const message = /email not confirmed/i.test(error.message || "")
-        ? "This account has not been activated by the administrator yet."
-        : error.message;
-      setAuthMessage(message, true);
+      const { error } = await db.auth.verifyOtp({
+        type: "magiclink",
+        token_hash: payload.token_hash
+      });
+
+      if(error) throw error;
+      document.getElementById("authPassword").value="";
+    } catch(error) {
+      setAuthMessage(error.message || "Could not unlock K22.", true);
+    } finally {
+      submit.disabled = false;
+      submit.textContent = "Unlock K22";
     }
   });
 
