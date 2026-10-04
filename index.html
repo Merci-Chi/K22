@@ -245,6 +245,20 @@
           </div>
           <textarea id="modalNotes" placeholder="Write notes for this category..."></textarea>
           <button class="save-btn" id="saveNotes">Save Notes</button>
+
+          <div class="category-attachments attachment-section">
+            <div class="attachment-head">
+              <div>
+                <h4><i data-lucide="paperclip"></i> Files & Photos</h4>
+                <small id="categoryAttachmentCount">0 files</small>
+              </div>
+              <label class="attachment-upload-btn compact">
+                <input id="categoryAttachmentInput" type="file" multiple hidden>
+                <i data-lucide="upload"></i> Add
+              </label>
+            </div>
+            <div id="categoryAttachments" class="attachment-list"></div>
+          </div>
         </section>
       </div>
     </div>
