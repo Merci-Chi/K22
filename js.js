@@ -545,6 +545,7 @@ function renderEverything() {
   renderRoutine();
   renderFocus();
   renderNotesPage();
+  setupCategoryPage();
   bindAttachmentInputs();
   renderNoteAttachments();
   bindCategoryCards();
@@ -1814,6 +1815,80 @@ function renderNotesPage() {
 let activeCategory = "";
 let editingCategoryItemId = null;
 
+const CATEGORY_PAGE_META = {
+  "Love": { icon:"heart", tone:"pink", description:"Relationships, memories, plans, and the people close to you." },
+  "Medical": { icon:"stethoscope", tone:"lilac", description:"Appointments, providers, health records, documents, and personal medical notes." },
+  "Goals": { icon:"target", tone:"gold", description:"Big plans, milestones, progress, and the things you are working toward." },
+  "Routine": { icon:"sun", tone:"blue", description:"Daily rhythms, habits, routines, and the systems that keep life moving." },
+  "Education": { icon:"graduation-cap", tone:"pink", description:"Learning plans, courses, research, school notes, and useful resources." },
+  "Trackers": { icon:"chart-no-axes-column-increasing", tone:"lilac", description:"Anything you want to measure, notice, or keep a running record of." },
+  "Cooking": { icon:"cooking-pot", tone:"pink", description:"Recipes, meal ideas, ingredients, favorites, and kitchen inspiration." },
+  "My Food Order": { icon:"cup-soda", tone:"green", description:"Your favorite orders, customizations, restaurants, and things worth ordering again." },
+  "Lifestyle Notes": { icon:"notebook-pen", tone:"gold", description:"Everyday references, preferences, ideas, and details that make life easier." },
+  "Fashion": { icon:"shirt", tone:"pink", description:"Outfits, sizing, inspiration, shopping notes, and personal style." },
+  "Parties": { icon:"party-popper", tone:"lilac", description:"Party ideas, guest plans, themes, supplies, and event inspiration." },
+  "Wishlist": { icon:"shopping-bag", tone:"blue", description:"Things you want, things to compare, and ideas to come back to later." },
+  "Business": { icon:"laptop", tone:"blue", description:"Projects, clients, deadlines, operations, documents, and business planning." },
+  "Websites": { icon:"globe-2", tone:"lilac", description:"Websites, domains, renewals, project status, links, and related notes." },
+  "Investments": { icon:"chart-no-axes-column-increasing", tone:"green", description:"Investment research, ideas, records, watchlists, and long-term notes." },
+  "Networking": { icon:"users", tone:"gold", description:"People, introductions, follow-ups, opportunities, and useful connections." },
+  "Legal": { icon:"file-text", tone:"pink", description:"Important legal notes, deadlines, references, and documents." },
+  "Nellis Auction": { icon:"tags", tone:"blue", description:"Lots to watch, bid limits, auction links, pickups, and purchase records." },
+  "Ideas": { icon:"lightbulb", tone:"pink", description:"A flexible space for thoughts, inspiration, possibilities, and things worth saving." },
+  "Gifts": { icon:"gift", tone:"lilac", description:"Gift ideas, budgets, people, occasions, and what you have already bought." },
+  "Wedding": { icon:"gem", tone:"green", description:"Plans, vendors, inspiration, budget notes, checklists, and wedding details." },
+  "Kids": { icon:"baby", tone:"gold", description:"Ideas, plans, references, memories, and anything you want to keep for the future." },
+  "Home": { icon:"house", tone:"pink", description:"Home ideas, projects, purchases, inspiration, maintenance, and plans." },
+  "Car": { icon:"car-front", tone:"blue", description:"Maintenance, mileage, registration, insurance, repairs, receipts, and car notes." }
+};
+
+function categoryPageUrl(category) {
+  return "category.html?name="+encodeURIComponent(category);
+}
+
+function setupCategoryPage() {
+  if(document.body.dataset.page!=="category")return;
+  const params=new URLSearchParams(location.search);
+  const requested=params.get("name");
+  if(!requested || !CATEGORY_PAGE_META[requested]){
+    location.replace("categories.html");
+    return;
+  }
+  openCategory(requested,{replaceUrl:true});
+}
+
+function updateCategoryDocumentMeta() {
+  if(document.body.dataset.page!=="category" || !activeCategory)return;
+  const title=document.getElementById("categoryPageTitle");
+  const description=document.getElementById("categoryPageDescription");
+  const icon=document.getElementById("categoryPageIcon");
+  const cover=document.getElementById("categoryCover");
+  const edited=document.getElementById("categoryLastEdited");
+  const meta=CATEGORY_PAGE_META[activeCategory] || {icon:"folder-open",tone:"blue",description:"Your space for everything that belongs here."};
+
+  if(title)title.textContent=activeCategory;
+  if(description)description.textContent=meta.description;
+  if(icon)icon.innerHTML='<i data-lucide="'+meta.icon+'"></i>';
+  if(cover){
+    cover.className="category-cover tone-"+meta.tone;
+    cover.setAttribute("aria-label",activeCategory+" cover");
+  }
+  document.title=activeCategory+" — K22";
+
+  const timestamps=[
+    ...state.categoryItems.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
+    ...state.categoryNotes.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
+    ...state.attachments.filter(x=>x.owner_type==="category"&&x.owner_key===activeCategory).map(x=>x.created_at)
+  ].filter(Boolean).sort().reverse();
+
+  if(edited){
+    edited.textContent=timestamps[0]
+      ? "Edited "+new Date(timestamps[0]).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})
+      : "New page";
+  }
+  icons();
+}
+
 const CATEGORY_TEMPLATES = {
   "Medical": {
     placeholder: "Appointment, medication, doctor, symptom...",
@@ -1880,7 +1955,9 @@ function bindCategoryCards() {
   document.querySelectorAll("[data-card]").forEach(card => {
     if (card.dataset.bound) return;
     card.dataset.bound="1";
-    card.addEventListener("click",()=>openCategory(card.dataset.card));
+    card.addEventListener("click",()=> {
+      location.href=categoryPageUrl(card.dataset.card);
+    });
   });
 }
 
@@ -1940,80 +2017,72 @@ function resetCategoryForm() {
   renderCategorySpecialFields();
 }
 
-function openCategory(category) {
-  activeCategory = category;
-  editingCategoryItemId = null;
-  const backdrop = document.getElementById("modalBackdrop");
-  const title = document.getElementById("modalTitle");
-  const notes = document.getElementById("modalNotes");
-  if (!backdrop || !title || !notes) return;
+function openCategory(category, options={}) {
+  if(!CATEGORY_PAGE_META[category])return;
 
-  title.textContent = category;
-  notes.value = state.categoryNotes.find(x => x.category === category)?.notes || "";
-  backdrop.classList.remove("hidden");
-  document.body.classList.add("modal-open");
+  if(document.body.dataset.page!=="category"){
+    location.href=categoryPageUrl(category);
+    return;
+  }
+
+  activeCategory=category;
+  editingCategoryItemId=null;
+
+  const wantedUrl=categoryPageUrl(category);
+  if(!options.replaceUrl && !location.href.endsWith(wantedUrl)){
+    history.pushState({category},"",wantedUrl);
+  }else if(options.replaceUrl){
+    history.replaceState({category},"",wantedUrl);
+  }
+
+  const notes=document.getElementById("modalNotes");
+  if(notes)notes.value=state.categoryNotes.find(x=>x.category===category)?.notes||"";
+
   resetCategoryForm();
   renderCategoryItems();
   renderCategoryAttachments();
+  updateCategoryDocumentMeta();
 
-  const closeBtn = document.getElementById("closeModal");
-  if (closeBtn && !closeBtn.dataset.bound) {
-    closeBtn.dataset.bound="1";
-    closeBtn.addEventListener("click",closeCategory);
-    backdrop.addEventListener("click",e=>{if(e.target===backdrop)closeCategory();});
-  }
-
-  const form = document.getElementById("categoryItemForm");
-  if (form && !form.dataset.bound) {
+  const form=document.getElementById("categoryItemForm");
+  if(form&&!form.dataset.bound){
     form.dataset.bound="1";
-    form.addEventListener("submit", async e => {
+    form.addEventListener("submit",async e=>{
       e.preventDefault();
       const input=document.getElementById("categoryItemInput");
       const text=input.value.trim();
-      if(!text || !activeCategory) return;
+      if(!text||!activeCategory)return;
 
-      const details = collectCategoryDetails();
+      const details=collectCategoryDetails();
 
-      if (editingCategoryItemId) {
-        const item = state.categoryItems.find(x => x.id === editingCategoryItemId);
-        if (!item) return;
-
-        item.text = text;
-        item.details = details;
-        item.updated_at = new Date().toISOString();
+      if(editingCategoryItemId){
+        const item=state.categoryItems.find(x=>x.id===editingCategoryItemId);
+        if(!item)return;
+        item.text=text;
+        item.details=details;
+        item.updated_at=new Date().toISOString();
         saveOfflineCache();
 
-        const result = await commitMutation({
-          table:"category_items",
-          action:"update",
-          payload:{ text:item.text, details:item.details },
-          match:{ id:item.id }
-        }, [item]);
-
-        if(result.error) return toast(result.error.message,true);
-        if(result.data?.[0]) Object.assign(item,result.data[0]);
+        const result=await commitMutation({
+          table:"category_items",action:"update",
+          payload:{text:item.text,details:item.details},
+          match:{id:item.id}
+        },[item]);
+        if(result.error)return toast(result.error.message,true);
+        if(result.data?.[0])Object.assign(item,result.data[0]);
         toast("Item updated");
-      } else {
+      }else{
         const position=state.categoryItems.filter(x=>x.category===activeCategory).length;
         const localItem={
-          id:crypto.randomUUID(),
-          user_id:currentUser.id,
-          category:activeCategory,
-          text,
-          details,
-          done:false,
-          position,
-          created_at:new Date().toISOString(),
-          updated_at:new Date().toISOString()
+          id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,
+          text,details,done:false,position,
+          created_at:new Date().toISOString(),updated_at:new Date().toISOString()
         };
-
         state.categoryItems.push(localItem);
         saveOfflineCache();
 
         const result=await commitMutation({
           table:"category_items",action:"insert",payload:localItem
         },[localItem]);
-
         if(result.error){
           state.categoryItems=state.categoryItems.filter(x=>x.id!==localItem.id);
           saveOfflineCache();
@@ -2024,29 +2093,37 @@ function openCategory(category) {
 
       resetCategoryForm();
       renderCategoryItems();
+      updateCategoryDocumentMeta();
     });
   }
 
-  const cancelEdit = document.getElementById("cancelCategoryEdit");
-  if (cancelEdit && !cancelEdit.dataset.bound) {
+  const cancelEdit=document.getElementById("cancelCategoryEdit");
+  if(cancelEdit&&!cancelEdit.dataset.bound){
     cancelEdit.dataset.bound="1";
-    cancelEdit.addEventListener("click", resetCategoryForm);
+    cancelEdit.addEventListener("click",resetCategoryForm);
   }
 
-  const save = document.getElementById("saveNotes");
-  if (save && !save.dataset.bound) {
-    save.dataset.bound="1";
-    save.addEventListener("click",()=>saveCategoryNotes(true));
-  }
-
-  if (!notes.dataset.bound) {
+  if(notes&&!notes.dataset.bound){
     notes.dataset.bound="1";
     let timer;
-    notes.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>saveCategoryNotes(false),500);});
+    notes.addEventListener("input",()=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>saveCategoryNotes(false),500);
+    });
   }
 }
 
+window.addEventListener("popstate",()=>{
+  if(document.body.dataset.page!=="category")return;
+  const category=new URLSearchParams(location.search).get("name");
+  if(category&&CATEGORY_PAGE_META[category])openCategory(category,{replaceUrl:true});
+});
+
 function closeCategory() {
+  if(document.body.dataset.page==="category"){
+    location.href="categories.html";
+    return;
+  }
   document.getElementById("modalBackdrop")?.classList.add("hidden");
   document.body.classList.remove("modal-open");
   editingCategoryItemId = null;
@@ -2138,6 +2215,7 @@ function renderCategoryItems() {
 
   if(count)count.textContent=`${items.length} ${items.length===1?"item":"items"}`;
   empty?.classList.toggle("hidden",items.length>0);
+  updateCategoryDocumentMeta();
   icons();
 }
 
@@ -2158,6 +2236,7 @@ async function saveCategoryNotes(notify=false) {
     const nextIdx=state.categoryNotes.findIndex(x=>x.category===activeCategory);
     if(nextIdx>=0)state.categoryNotes[nextIdx]=result.data[0];
   }
+  updateCategoryDocumentMeta();
   if(notify)toast(activeCategory+" notes saved");
 }
 
@@ -2318,6 +2397,7 @@ function renderCategoryAttachments() {
   if(!rows.length)holder.innerHTML='<div class="attachment-empty">No files or photos yet.</div>';
   const count=document.getElementById("categoryAttachmentCount");
   if(count)count.textContent=rows.length+" "+(rows.length===1?"file":"files");
+  updateCategoryDocumentMeta();
   icons();
 }
 
@@ -2398,7 +2478,7 @@ function buildUniversalSearchResults(query) {
     if(hay.includes(q)){
       results.push({
         type:item.category,icon:"folder-open",title:item.text,
-        detail:"Category item",page:"categories.html",action:"category-item",id:item.id,category:item.category
+        detail:"Category item",page:"category.html",action:"category-item",id:item.id,category:item.category
       });
     }
   });
@@ -2408,7 +2488,7 @@ function buildUniversalSearchResults(query) {
     if(hay.includes(q)){
       results.push({
         type:note.category,icon:"notebook-tabs",title:note.category+" notes",
-        detail:(note.notes||"").slice(0,90),page:"categories.html",action:"category",category:note.category
+        detail:(note.notes||"").slice(0,90),page:"category.html",action:"category",category:note.category
       });
     }
   });
@@ -2448,7 +2528,7 @@ function buildUniversalSearchResults(query) {
     if(category && category.toLowerCase().includes(q)){
       results.push({
         type:"Category",icon:"layout-grid",title:category,
-        detail:"Open category",page:"categories.html",action:"category",category
+        detail:"Open category",page:"category.html",action:"category",category
       });
     }
   });
