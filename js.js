@@ -1982,10 +1982,158 @@ async function migrateCategoryLegacyToBlocks(category) {
   saveOfflineCache();
 }
 
-function autoSizeBlockField(field) {
-  if(!field || field.tagName!=="TEXTAREA")return;
-  field.style.height="auto";
-  field.style.height=Math.max(field.scrollHeight,36)+"px";
+
+function sanitizeRichBlockHtml(html) {
+  const template=document.createElement("template");
+  template.innerHTML=html||"";
+  const allowed=new Set(["B","STRONG","I","EM","U","S","STRIKE","CODE","A","SPAN","BR"]);
+  const walk=node=>{
+    [...node.children].forEach(child=>{
+      if(!allowed.has(child.tagName)){
+        child.replaceWith(...child.childNodes);
+        return;
+      }
+      [...child.attributes].forEach(attr=>{
+        const name=attr.name.toLowerCase();
+        if(child.tagName==="A" && name==="href"){
+          const href=child.getAttribute("href")||"";
+          if(!/^(https?:\/\/|mailto:)/i.test(href))child.removeAttribute("href");
+          return;
+        }
+        if(child.tagName==="A" && ["target","rel"].includes(name))return;
+        if(child.tagName==="SPAN" && name==="style"){
+          const bg=(child.style.backgroundColor||"").trim();
+          child.removeAttribute("style");
+          if(bg)child.style.backgroundColor=bg;
+          return;
+        }
+        child.removeAttribute(attr.name);
+      });
+      if(child.tagName==="A"){
+        child.target="_blank";
+        child.rel="noopener noreferrer";
+      }
+      walk(child);
+    });
+  };
+  walk(template.content);
+  return template.innerHTML;
+}
+
+function blockPlainText(field) {
+  return (field.innerText||"").replace(/\u00a0/g," ").trimEnd();
+}
+
+function ensureRichTextToolbar() {
+  let toolbar=document.getElementById("categoryRichToolbar");
+  if(toolbar)return toolbar;
+
+  toolbar=document.createElement("div");
+  toolbar.id="categoryRichToolbar";
+  toolbar.className="category-rich-toolbar hidden";
+  toolbar.innerHTML=`
+    <button type="button" data-rich-command="bold" aria-label="Bold"><b>B</b></button>
+    <button type="button" data-rich-command="italic" aria-label="Italic"><i>I</i></button>
+    <button type="button" data-rich-command="underline" aria-label="Underline"><u>U</u></button>
+    <button type="button" data-rich-command="strikeThrough" aria-label="Strikethrough"><s>S</s></button>
+    <button type="button" data-rich-command="inlineCode" aria-label="Inline code"><i data-lucide="code"></i></button>
+    <button type="button" data-rich-command="createLink" aria-label="Link"><i data-lucide="link"></i></button>
+    <span class="category-rich-divider"></span>
+    <button type="button" class="category-highlight-dot" data-highlight="#f8e7a8" aria-label="Yellow highlight"></button>
+    <button type="button" class="category-highlight-dot" data-highlight="#f3d7dc" aria-label="Pink highlight"></button>
+    <button type="button" class="category-highlight-dot" data-highlight="#dcebdc" aria-label="Green highlight"></button>
+    <button type="button" class="category-highlight-dot" data-highlight="#dce7f2" aria-label="Blue highlight"></button>
+    <button type="button" class="category-highlight-dot" data-highlight="#e7def1" aria-label="Lilac highlight"></button>
+    <button type="button" data-rich-command="removeFormat" aria-label="Clear formatting"><i data-lucide="eraser"></i></button>
+  `;
+  document.body.appendChild(toolbar);
+
+  toolbar.addEventListener("pointerdown",e=>e.preventDefault());
+  toolbar.addEventListener("click",e=>{
+    const btn=e.target.closest("button");
+    const field=document.querySelector(".category-block-input.rich-active");
+    if(!btn||!field)return;
+    field.focus();
+
+    const highlight=btn.dataset.highlight;
+    const command=btn.dataset.richCommand;
+
+    if(highlight){
+      document.execCommand("hiliteColor",false,highlight);
+      if(!document.queryCommandValue("hiliteColor"))document.execCommand("backColor",false,highlight);
+    }else if(command==="createLink"){
+      const selection=window.getSelection();
+      if(!selection||selection.isCollapsed)return;
+      let url=prompt("Paste a link:");
+      if(!url)return;
+      url=url.trim();
+      if(!/^(https?:\/\/|mailto:)/i.test(url))url="https://"+url;
+      document.execCommand("createLink",false,url);
+      field.querySelectorAll("a").forEach(a=>{a.target="_blank";a.rel="noopener noreferrer";});
+    }else if(command==="inlineCode"){
+      const selection=window.getSelection();
+      if(!selection||selection.isCollapsed)return;
+      const text=selection.toString();
+      document.execCommand("insertHTML",false,"<code>"+esc(text)+"</code>");
+    }else if(command){
+      document.execCommand(command,false,null);
+    }
+
+    field.dispatchEvent(new Event("input",{bubbles:true}));
+    positionRichToolbar(field);
+  });
+
+  icons();
+  return toolbar;
+}
+
+function positionRichToolbar(field) {
+  const toolbar=ensureRichTextToolbar();
+  if(!field || !document.body.contains(field)){
+    toolbar.classList.add("hidden");
+    return;
+  }
+
+  const selection=window.getSelection();
+  const mobile=window.matchMedia("(max-width: 650px)").matches;
+
+  if(mobile){
+    toolbar.classList.remove("hidden");
+    toolbar.classList.add("mobile");
+    toolbar.style.left="";
+    toolbar.style.top="";
+    return;
+  }
+
+  toolbar.classList.remove("mobile");
+  if(!selection || selection.isCollapsed || !field.contains(selection.anchorNode)){
+    toolbar.classList.add("hidden");
+    return;
+  }
+
+  const range=selection.getRangeAt(0);
+  const rect=range.getBoundingClientRect();
+  if(!rect.width && !rect.height){
+    toolbar.classList.add("hidden");
+    return;
+  }
+
+  toolbar.classList.remove("hidden");
+  const width=toolbar.offsetWidth||320;
+  const left=Math.max(8,Math.min(window.innerWidth-width-8,rect.left+(rect.width-width)/2));
+  const top=Math.max(8,rect.top-toolbar.offsetHeight-8);
+  toolbar.style.left=left+"px";
+  toolbar.style.top=top+"px";
+}
+
+function hideRichToolbarSoon() {
+  setTimeout(()=>{
+    const active=document.activeElement;
+    if(!active?.classList?.contains("category-block-input")){
+      document.getElementById("categoryRichToolbar")?.classList.add("hidden");
+      document.querySelectorAll(".category-block-input.rich-active").forEach(x=>x.classList.remove("rich-active"));
+    }
+  },80);
 }
 
 async function createCategoryBlock(type="paragraph", afterId=null) {
@@ -2101,6 +2249,7 @@ function categoryBlockField(block, content) {
     check.checked=!!content.checked;
     check.addEventListener("change",()=>{
       updateCategoryBlock(block,{content:{...content,checked:check.checked}});
+      wrap.closest(".category-block")?.classList.toggle("checked",check.checked);
     });
     wrap.appendChild(check);
   }else if(block.type==="bullet"){
@@ -2115,12 +2264,19 @@ function categoryBlockField(block, content) {
     wrap.appendChild(marker);
   }
 
-  const field=document.createElement("textarea");
+  const field=document.createElement("div");
   field.className="category-block-input";
-  field.rows=1;
-  field.value=content.text||"";
-  field.placeholder=CATEGORY_BLOCK_TYPES[block.type]?.placeholder||"Write something...";
+  field.contentEditable="true";
+  field.spellcheck=true;
+  field.dataset.placeholder=CATEGORY_BLOCK_TYPES[block.type]?.placeholder||"Write something...";
+  field.setAttribute("role","textbox");
+  field.setAttribute("aria-multiline","true");
   field.setAttribute("aria-label",CATEGORY_BLOCK_TYPES[block.type]?.label||"Block");
+
+  const initialHtml=content.html
+    ? sanitizeRichBlockHtml(content.html)
+    : esc(content.text||"").replace(/\n/g,"<br>");
+  field.innerHTML=initialHtml;
   wrap.appendChild(field);
 
   if(block.type==="link"){
@@ -2142,14 +2298,33 @@ function categoryBlockField(block, content) {
   }
 
   let timer;
-  field.addEventListener("input",()=>{
-    autoSizeBlockField(field);
+  const saveRichContent=()=>{
     clearTimeout(timer);
     timer=setTimeout(()=>{
-      content={...content,text:field.value};
+      const html=sanitizeRichBlockHtml(field.innerHTML);
+      content={...content,text:blockPlainText(field),html};
       updateCategoryBlock(block,{content});
-    },400);
+    },350);
+  };
+
+  field.addEventListener("input",saveRichContent);
+
+  field.addEventListener("paste",e=>{
+    e.preventDefault();
+    const text=e.clipboardData?.getData("text/plain")||"";
+    document.execCommand("insertText",false,text);
   });
+
+  field.addEventListener("focus",()=>{
+    document.querySelectorAll(".category-block-input.rich-active").forEach(x=>x.classList.remove("rich-active"));
+    field.classList.add("rich-active");
+    positionRichToolbar(field);
+  });
+
+  field.addEventListener("blur",hideRichToolbarSoon);
+
+  field.addEventListener("mouseup",()=>setTimeout(()=>positionRichToolbar(field),0));
+  field.addEventListener("keyup",()=>setTimeout(()=>positionRichToolbar(field),0));
 
   field.addEventListener("keydown",e=>{
     if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
@@ -2158,7 +2333,6 @@ function categoryBlockField(block, content) {
     }
   });
 
-  requestAnimationFrame(()=>autoSizeBlockField(field));
   return wrap;
 }
 
