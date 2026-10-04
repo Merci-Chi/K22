@@ -428,3 +428,42 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 @media(max-width:560px){
   .category-special-fields{grid-template-columns:1fr}
 }
+
+
+/* Recurring routines */
+.routine-panel .panel-title-row{align-items:flex-start}
+.routine-subtitle{margin:4px 0 0;color:#777;font-size:11px}
+.routine-filter-row{display:flex;gap:6px;flex-wrap:wrap;margin:13px 0 8px}
+.routine-filter{
+  border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:999px;
+  padding:6px 10px;font-size:11px;color:#666
+}
+.routine-filter.active{background:#292623;color:#fff;border-color:#292623}
+.routine-list{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.routine-item{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:rgba(255,255,255,.62);border:1px solid rgba(0,0,0,.055);
+  border-radius:13px;padding:10px 11px
+}
+.routine-check{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.routine-check input{width:19px;height:19px;flex:0 0 auto}
+.routine-check span{display:flex;flex-direction:column;min-width:0}
+.routine-check b{font-size:13px}
+.routine-check small{margin-top:3px;color:#777;font-size:10px}
+.routine-item.done .routine-check b{text-decoration:line-through;color:#999}
+.routine-edit-btn{
+  border:0;background:transparent;color:#777;border-radius:8px;padding:5px;flex:0 0 auto
+}
+.routine-edit-btn:hover{background:rgba(0,0,0,.05);color:#333}
+.routine-edit-btn svg{width:15px;height:15px}
+.routine-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.routine-days label{cursor:pointer}
+.routine-days input{position:absolute;opacity:0;pointer-events:none}
+.routine-days span{
+  display:block;text-align:center;border:1px solid rgba(0,0,0,.09);
+  border-radius:10px;padding:8px 4px;font-size:10px;background:#fff
+}
+.routine-days input:checked+span{background:#292623;color:#fff;border-color:#292623}
+@media(max-width:560px){
+  .routine-days{grid-template-columns:repeat(4,1fr)}
+}
