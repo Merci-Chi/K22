@@ -501,6 +501,7 @@ function renderEverything() {
   bindEventModal();
   renderHomeCalendar();
   renderHomeEvents();
+  renderSmartHome();
   renderRoutine();
   renderFocus();
   renderNotesPage();
@@ -1307,6 +1308,129 @@ function routineRepeatLabel(item) {
   if (JSON.stringify(days) === JSON.stringify(weekends)) return "Weekends";
   const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
   return days.map(d=>names[d]).join(", ");
+}
+
+
+function formatEventDateLabel(ev) {
+  if (!ev?.event_date) return "";
+  if (ev.event_date === todayISO()) return "Today";
+  const tomorrow = localDateObject();
+  tomorrow.setDate(tomorrow.getDate()+1);
+  const tomorrowISO = isoDate(tomorrow.getFullYear(),tomorrow.getMonth(),tomorrow.getDate());
+  if (ev.event_date === tomorrowISO) return "Tomorrow";
+  return new Date(ev.event_date+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+}
+
+function renderSmartHome() {
+  if (!document.getElementById("homeOverdueCount")) return;
+
+  const activeTasks = state.tasks.filter(task=>!task.done);
+  const overdue = activeTasks.filter(task=>task.due_date && task.due_date < todayISO());
+  document.getElementById("homeOverdueCount").textContent = overdue.length;
+  document.getElementById("homeOverdueText").textContent = overdue.length
+    ? overdue[0].text + (overdue.length>1 ? " +" + (overdue.length-1) + " more" : "")
+    : "Nothing overdue";
+
+  const upcomingEvents = [...state.events]
+    .filter(ev=>ev.event_date >= todayISO())
+    .sort((a,b)=>{
+      const ak=a.event_date+(eventStart(a)||"00:00");
+      const bk=b.event_date+(eventStart(b)||"00:00");
+      return ak.localeCompare(bk);
+    });
+  const nextEvent = upcomingEvents[0];
+  document.getElementById("homeNextEventTitle").textContent = nextEvent?.title || "No events";
+  document.getElementById("homeNextEventTime").textContent = nextEvent
+    ? [formatEventDateLabel(nextEvent),eventTimeLabel(nextEvent)].filter(Boolean).join(" · ")
+    : "Calendar is clear";
+
+  const todayRoutines = state.routine.filter(routineRunsToday);
+  const doneRoutines = todayRoutines.filter(routineIsDoneToday).length;
+  document.getElementById("homeRoutineProgress").textContent = doneRoutines+" / "+todayRoutines.length;
+  document.getElementById("homeRoutineText").textContent = todayRoutines.length
+    ? (doneRoutines===todayRoutines.length ? "All routines complete" : (todayRoutines.length-doneRoutines)+" left today")
+    : "Nothing scheduled";
+
+  const highPriority = activeTasks
+    .filter(task=>task.priority==="high")
+    .sort((a,b)=>{
+      const ad=a.due_date||"9999-12-31",bd=b.due_date||"9999-12-31";
+      return ad.localeCompare(bd);
+    })[0];
+  document.getElementById("homePriorityTitle").textContent = highPriority?.text || "All clear";
+  document.getElementById("homePriorityText").textContent = highPriority
+    ? (taskDueLabel(highPriority) || "High priority")
+    : "No high-priority tasks";
+
+  bindHomeCapture();
+}
+
+function bindHomeCapture() {
+  const form=document.getElementById("homeCaptureForm");
+  if(!form||form.dataset.bound)return;
+  form.dataset.bound="1";
+
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const type=document.getElementById("homeCaptureType").value;
+    const input=document.getElementById("homeCaptureInput");
+    const text=input.value.trim();
+    if(!text)return;
+
+    if(type==="task"){
+      const row={
+        id:crypto.randomUUID(),user_id:currentUser.id,scope:"home",bucket:"inbox",
+        text,done:false,position:state.tasks.length,priority:"none",repeat_rule:"none",
+        subtasks:[],created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+      };
+      state.tasks.push(row);
+      saveOfflineCache();
+      const result=await commitMutation({table:"tasks",action:"insert",payload:row},[row]);
+      if(result.error){
+        state.tasks=state.tasks.filter(x=>x.id!==row.id);
+        saveOfflineCache();
+        return toast(result.error.message,true);
+      }
+      toast("Added to Inbox");
+    }
+
+    if(type==="note"){
+      const row={
+        id:crypto.randomUUID(),user_id:currentUser.id,title:text,body:"",
+        created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+      };
+      state.notes.unshift(row);
+      saveOfflineCache();
+      const result=await commitMutation({table:"notes",action:"insert",payload:row},[row]);
+      if(result.error){
+        state.notes=state.notes.filter(x=>x.id!==row.id);
+        saveOfflineCache();
+        return toast(result.error.message,true);
+      }
+      toast("Note captured");
+    }
+
+    if(type==="event"){
+      const row={
+        id:crypto.randomUUID(),user_id:currentUser.id,title:text,event_date:todayISO(),
+        event_time:null,start_time:null,end_time:null,all_day:true,location:null,
+        reminder_minutes:null,notes:null,created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+      };
+      state.events.push(row);
+      saveOfflineCache();
+      const result=await commitMutation({table:"calendar_events",action:"insert",payload:row},[row]);
+      if(result.error){
+        state.events=state.events.filter(x=>x.id!==row.id);
+        saveOfflineCache();
+        return toast(result.error.message,true);
+      }
+      toast("Event added for today");
+    }
+
+    input.value="";
+    renderHomeEvents();
+    renderSmartHome();
+  });
 }
 
 function renderRoutine() {
@@ -2191,6 +2315,7 @@ document.addEventListener("visibilitychange", () => {
     updateDynamicDateUI();
     renderHomeCalendar();
     renderHomeEvents();
+    renderSmartHome();
     if (document.querySelector(".full-calendar-grid")) {
       const d = localDateObject();
       if (selectedDate === todayISO()) {
@@ -2204,4 +2329,5 @@ document.addEventListener("visibilitychange", () => {
 setInterval(() => {
   updateDynamicDateUI();
   renderHomeEvents();
+  renderSmartHome();
 }, 60000);
