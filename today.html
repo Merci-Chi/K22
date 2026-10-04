@@ -45,16 +45,29 @@
 </header>
 
 <section class="today-page-grid">
-  <article class="panel">
-    <div class="panel-title-row">
-      <h2><i data-lucide="check-circle-2"></i> Today’s Tasks</h2>
-      <button class="link-btn" id="todayClearDone">Clear Done</button>
+  <article class="panel todo-hub">
+    <div class="panel-title-row todo-hub-head">
+      <div>
+        <h2><i data-lucide="list-todo"></i> To-Do</h2>
+        <p class="todo-hub-subtitle" id="todoSummary">Everything in one place.</p>
+      </div>
+      <button class="link-btn" id="addTaskBtn"><i data-lucide="plus"></i> Add Task</button>
     </div>
-    <div id="todayPageTasks" class="task-list large-task-list"></div>
-    <form id="todayTaskForm" class="quick-add">
+
+    <div class="todo-tabs" id="todoTabs">
+      <button class="todo-tab active" data-todo-view="inbox"><i data-lucide="inbox"></i><span>Inbox</span><b data-count="inbox">0</b></button>
+      <button class="todo-tab" data-todo-view="today"><i data-lucide="sun"></i><span>Today</span><b data-count="today">0</b></button>
+      <button class="todo-tab" data-todo-view="upcoming"><i data-lucide="calendar-clock"></i><span>Upcoming</span><b data-count="upcoming">0</b></button>
+      <button class="todo-tab" data-todo-view="someday"><i data-lucide="cloud"></i><span>Someday</span><b data-count="someday">0</b></button>
+      <button class="todo-tab" data-todo-view="completed"><i data-lucide="circle-check-big"></i><span>Completed</span><b data-count="completed">0</b></button>
+    </div>
+
+    <form id="todoQuickAdd" class="quick-add todo-quick-add">
       <i data-lucide="plus"></i>
-      <input id="todayTaskInput" type="text" placeholder="Add something for today..." />
+      <input id="todoQuickInput" type="text" placeholder="Quick add to Inbox..." />
     </form>
+
+    <div id="todoTaskList" class="todo-task-list"></div>
   </article>
 
   <article class="panel routine-panel">
@@ -106,6 +119,91 @@
     </div>
   </div>
 
+
+
+  <div class="event-modal-backdrop hidden" id="taskModalBackdrop">
+    <div class="event-modal task-modal">
+      <div class="event-modal-head">
+        <div>
+          <small>Task</small>
+          <h2 id="taskModalTitle">Add Task</h2>
+        </div>
+        <button class="modal-close" id="closeTaskModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+
+      <form id="taskForm" class="event-form">
+        <input type="hidden" id="taskId">
+
+        <label class="event-field event-field-full">
+          <span>Task</span>
+          <input id="taskTextInput" type="text" placeholder="What needs to get done?" required>
+        </label>
+
+        <label class="event-field">
+          <span>List</span>
+          <select id="taskBucketInput">
+            <option value="inbox">Inbox</option>
+            <option value="today">Today</option>
+            <option value="someday">Someday</option>
+          </select>
+        </label>
+
+        <label class="event-field">
+          <span>Due date</span>
+          <input id="taskDueDateInput" type="date">
+        </label>
+
+        <label class="event-field">
+          <span>Priority</span>
+          <select id="taskPriorityInput">
+            <option value="none">No priority</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </label>
+
+        <label class="event-field">
+          <span>Category</span>
+          <input id="taskCategoryInput" type="text" placeholder="Business, Personal, Car...">
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Repeat</span>
+          <select id="taskRepeatInput">
+            <option value="none">Does not repeat</option>
+            <option value="daily">Every day</option>
+            <option value="weekdays">Every weekday</option>
+            <option value="weekly">Every week</option>
+            <option value="monthly">Every month</option>
+          </select>
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Subtasks <small>one per line</small></span>
+          <textarea id="taskSubtasksInput" placeholder="Example:
+Call office
+Send paperwork
+Confirm appointment"></textarea>
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Notes</span>
+          <textarea id="taskNotesInput" placeholder="Anything else you want to remember..."></textarea>
+        </label>
+
+        <div class="event-form-actions">
+          <button type="button" class="soft-btn danger-soft hidden" id="deleteTaskBtn">
+            <i data-lucide="trash-2"></i> Delete
+          </button>
+          <div class="event-form-actions-right">
+            <button type="button" class="soft-btn" id="cancelTaskBtn">Cancel</button>
+            <button type="submit" class="save-btn" id="saveTaskBtn">Save Task</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <div class="event-modal-backdrop hidden" id="routineModalBackdrop">
     <div class="event-modal routine-modal">
