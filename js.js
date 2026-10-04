@@ -219,6 +219,15 @@ async function safe(queryPromise) {
   return data;
 }
 
+async function safeOptional(queryPromise) {
+  const { data, error } = await queryPromise;
+  if (error) {
+    console.warn("Optional K22 data source unavailable:", error.message);
+    return [];
+  }
+  return data;
+}
+
 const OFFLINE_QUEUE_KEY = "k22OfflineQueue";
 const OFFLINE_CACHE_PREFIX = "k22OfflineState:";
 
@@ -357,7 +366,7 @@ async function loadAll() {
       safe(db.from("category_items").select("*").order("position").order("created_at")),
       safe(db.from("category_notes").select("*")),
       safe(db.from("routine_items").select("*").order("position")),
-      safe(db.from("attachments").select("*").order("created_at", { ascending: false })),
+      safeOptional(db.from("attachments").select("*").order("created_at", { ascending: false })),
       safe(db.from("user_settings").select("*").limit(1))
     ]);
 
