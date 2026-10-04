@@ -143,6 +143,7 @@ function rememberedEmail() {
   return localStorage.getItem("k22RememberedEmail") || "";
 }
 
+
 function makeAuthGate() {
   if (document.getElementById("authGate")) return;
   const gate = document.createElement("div");
@@ -152,11 +153,8 @@ function makeAuthGate() {
     <div class="auth-card">
       <div class="auth-brand-icon"><i data-lucide="shield-check"></i></div>
       <h1>K22</h1>
-      <p>Your life organizer, synced everywhere.</p>
-      <div class="auth-tabs">
-        <button class="auth-tab active" data-mode="signin">Sign In</button>
-        <button class="auth-tab" data-mode="signup">Create Account</button>
-      </div>
+      <p>Private access only. Accounts are created by the administrator.</p>
+
       <form class="auth-form" id="authForm">
         <label>Email
           <input id="authEmail" type="email" autocomplete="email" required>
@@ -167,14 +165,20 @@ function makeAuthGate() {
             <button type="button" class="password-toggle" id="authPasswordToggle" aria-label="Show password"><i data-lucide="eye"></i></button>
           </div>
         </label>
-        <div class="password-rules hidden" id="passwordRules">8+ characters · capital · lowercase · number · symbol</div>
+
         <label class="remember-email-row">
           <input id="rememberEmailCheck" type="checkbox">
           <span>Save email for login on this device</span>
         </label>
+
         <button class="auth-submit" id="authSubmit" type="submit">Sign In</button>
-        <button class="auth-link-btn" id="forgotPasswordBtn" type="button">Forgot password?</button>
+
+        <div class="manual-access-note">
+          <i data-lucide="user-round-cog"></i>
+          <span>Need access or a password reset? Contact the K22 administrator.</span>
+        </div>
       </form>
+
       <div class="auth-message" id="authMessage"></div>
     </div>`;
   document.body.appendChild(gate);
@@ -187,19 +191,6 @@ function makeAuthGate() {
     remember.checked=true;
   }
 
-  let mode = "signin";
-  gate.querySelectorAll(".auth-tab").forEach(btn => {
-    btn.addEventListener("click", () => {
-      mode = btn.dataset.mode;
-      gate.querySelectorAll(".auth-tab").forEach(x => x.classList.toggle("active", x === btn));
-      document.getElementById("authSubmit").textContent = mode === "signin" ? "Sign In" : "Create Account";
-      document.getElementById("authPassword").autocomplete = mode === "signin" ? "current-password" : "new-password";
-      document.getElementById("passwordRules").classList.toggle("hidden",mode!=="signup");
-      document.getElementById("forgotPasswordBtn").classList.toggle("hidden",mode!=="signin");
-      setAuthMessage("");
-    });
-  });
-
   document.getElementById("authPasswordToggle")?.addEventListener("click",()=>{
     const input=document.getElementById("authPassword");
     input.type=input.type==="password"?"text":"password";
@@ -209,51 +200,32 @@ function makeAuthGate() {
     icons();
   });
 
-  document.getElementById("forgotPasswordBtn")?.addEventListener("click",async()=>{
-    const email=emailInput.value.trim();
-    if(!email)return setAuthMessage("Enter your email first.",true);
-    const redirectTo=location.origin+location.pathname;
-    const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo});
-    if(error)return setAuthMessage(error.message,true);
-    setAuthMessage("Password reset email sent. Open the link in that email to choose a new password.");
-  });
-
   document.getElementById("authForm").addEventListener("submit", async e => {
     e.preventDefault();
     const email = emailInput.value.trim();
     const password = document.getElementById("authPassword").value;
     const submit = document.getElementById("authSubmit");
 
-    if(mode==="signup"){
-      const problem=passwordProblem(password);
-      if(problem)return setAuthMessage(problem,true);
-    }
-
     if(remember.checked)localStorage.setItem("k22RememberedEmail",email);
     else localStorage.removeItem("k22RememberedEmail");
 
     submit.disabled = true;
-    submit.textContent = mode === "signin" ? "Signing In..." : "Creating...";
+    submit.textContent = "Signing In...";
 
-    let error;
-    if (mode === "signin") {
-      ({ error } = await db.auth.signInWithPassword({ email, password }));
-    } else {
-      ({ error } = await db.auth.signUp({ email, password }));
-    }
+    const { error } = await db.auth.signInWithPassword({ email, password });
 
     submit.disabled = false;
-    submit.textContent = mode === "signin" ? "Sign In" : "Create Account";
+    submit.textContent = "Sign In";
 
     if (error) {
-      setAuthMessage(error.message, true);
-      return;
-    }
-
-    if (mode === "signup") {
-      setAuthMessage("Account created. Check your email if verification is enabled, then sign in.");
+      const message = /email not confirmed/i.test(error.message || "")
+        ? "This account has not been activated by the administrator yet."
+        : error.message;
+      setAuthMessage(message, true);
     }
   });
+
+  icons();
 }
 
 function setAuthMessage(message, error = false) {
@@ -2763,7 +2735,7 @@ async function openAccountSecurity() {
             <div><h3>Email</h3><p>${esc(currentUser.email||"")}</p></div>
             <span class="security-badge ${verified?"verified":"warning"}">${verified?"Verified":"Not verified"}</span>
           </div>
-          ${verified ? "" : '<button class="soft-btn security-action" id="resendVerifyBtn"><i data-lucide="send"></i> Resend verification email</button>'}
+          ${verified ? "" : '<div class="security-inline-status">This account must be activated by the K22 administrator.</div>'}
         </section>
 
         <section class="security-card">
@@ -2774,7 +2746,6 @@ async function openAccountSecurity() {
           <div class="security-password-form">
             <input id="newAccountPassword" type="password" autocomplete="new-password" placeholder="New password">
             <button class="soft-btn" id="changePasswordBtn">Change Password</button>
-            <button class="soft-btn" id="emailResetBtn">Email Reset Link</button>
           </div>
           <div class="security-inline-status" id="passwordSecurityStatus"></div>
         </section>
@@ -3365,10 +3336,6 @@ window.addEventListener("offline",()=>{
   const { data:{ session } } = await db.auth.getSession();
   await handleSession(session);
   db.auth.onAuthStateChange((event, nextSession) => {
-    if(event === "PASSWORD_RECOVERY") {
-      setTimeout(showPasswordRecovery,0);
-      return;
-    }
     setTimeout(() => handleSession(nextSession), 0);
   });
   icons();
