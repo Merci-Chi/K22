@@ -1061,6 +1061,70 @@ function renderNotesPage() {
 }
 
 let activeCategory = "";
+let editingCategoryItemId = null;
+
+const CATEGORY_TEMPLATES = {
+  "Medical": {
+    placeholder: "Appointment, medication, doctor, symptom...",
+    fields: [
+      { key:"type", label:"Type", type:"select", options:["Appointment","Medication","Doctor","Symptom","Test","Other"] },
+      { key:"provider", label:"Doctor / Provider", type:"text", placeholder:"Name" },
+      { key:"date", label:"Date", type:"date" }
+    ]
+  },
+  "Business": {
+    placeholder: "Project, client, business task...",
+    fields: [
+      { key:"status", label:"Status", type:"select", options:["Idea","To Do","In Progress","Waiting","Complete"] },
+      { key:"due_date", label:"Due date", type:"date" },
+      { key:"company", label:"Company / Client", type:"text", placeholder:"Optional" }
+    ]
+  },
+  "Websites": {
+    placeholder: "Website or domain...",
+    fields: [
+      { key:"url", label:"Website URL", type:"url", placeholder:"https://..." },
+      { key:"status", label:"Status", type:"select", options:["Planning","Building","Live","Paused"] },
+      { key:"renewal_date", label:"Renewal date", type:"date" }
+    ]
+  },
+  "Car": {
+    placeholder: "Oil change, registration, repair...",
+    fields: [
+      { key:"type", label:"Type", type:"select", options:["Maintenance","Repair","Registration","Insurance","Fuel","Other"] },
+      { key:"mileage", label:"Mileage", type:"number", placeholder:"Current mileage" },
+      { key:"due_date", label:"Due date", type:"date" }
+    ]
+  },
+  "Wedding": {
+    placeholder: "Vendor, checklist item, idea...",
+    fields: [
+      { key:"status", label:"Status", type:"select", options:["Idea","Researching","Booked","Paid","Complete"] },
+      { key:"vendor", label:"Vendor", type:"text", placeholder:"Optional" },
+      { key:"budget", label:"Budget", type:"number", placeholder:"Amount" },
+      { key:"due_date", label:"Due date", type:"date" }
+    ]
+  },
+  "Gifts": {
+    placeholder: "Gift idea...",
+    fields: [
+      { key:"person", label:"For", type:"text", placeholder:"Person" },
+      { key:"budget", label:"Budget", type:"number", placeholder:"Amount" },
+      { key:"status", label:"Status", type:"select", options:["Idea","Need to Buy","Bought","Wrapped","Given"] }
+    ]
+  },
+  "Nellis Auction": {
+    placeholder: "Auction item...",
+    fields: [
+      { key:"lot", label:"Lot / Item #", type:"text", placeholder:"Optional" },
+      { key:"max_price", label:"Max price", type:"number", placeholder:"Your limit" },
+      { key:"end_date", label:"Auction end", type:"datetime-local" },
+      { key:"url", label:"Auction URL", type:"url", placeholder:"https://..." },
+      { key:"status", label:"Status", type:"select", options:["Watching","Bidding","Won","Lost","Picked Up"] }
+    ]
+  }
+};
+
 function bindCategoryCards() {
   document.querySelectorAll("[data-card]").forEach(card => {
     if (card.dataset.bound) return;
@@ -1069,21 +1133,81 @@ function bindCategoryCards() {
   });
 }
 
+function renderCategorySpecialFields(item = null) {
+  const holder = document.getElementById("categorySpecialFields");
+  const input = document.getElementById("categoryItemInput");
+  if (!holder || !input) return;
+
+  const config = CATEGORY_TEMPLATES[activeCategory];
+  input.placeholder = config?.placeholder || "Add something...";
+  holder.innerHTML = "";
+
+  if (!config) {
+    holder.classList.add("hidden");
+    return;
+  }
+
+  holder.classList.remove("hidden");
+  config.fields.forEach(field => {
+    const label = document.createElement("label");
+    label.className = "category-special-field";
+    label.innerHTML = `<span>${esc(field.label)}</span>`;
+
+    let control;
+    if (field.type === "select") {
+      control = document.createElement("select");
+      control.innerHTML = '<option value="">Select...</option>' + field.options.map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join("");
+    } else {
+      control = document.createElement("input");
+      control.type = field.type;
+      if (field.placeholder) control.placeholder = field.placeholder;
+      if (field.type === "number") control.step = "any";
+    }
+
+    control.dataset.detailKey = field.key;
+    control.value = item?.details?.[field.key] ?? "";
+    label.appendChild(control);
+    holder.appendChild(label);
+  });
+}
+
+function collectCategoryDetails() {
+  const details = {};
+  document.querySelectorAll("#categorySpecialFields [data-detail-key]").forEach(el => {
+    const value = el.value?.trim?.() ?? el.value;
+    if (value !== "" && value !== null) details[el.dataset.detailKey] = value;
+  });
+  return details;
+}
+
+function resetCategoryForm() {
+  editingCategoryItemId = null;
+  const input = document.getElementById("categoryItemInput");
+  if (input) input.value = "";
+  document.getElementById("categorySubmitBtn")?.replaceChildren(document.createTextNode("Add"));
+  document.getElementById("cancelCategoryEdit")?.classList.add("hidden");
+  renderCategorySpecialFields();
+}
+
 function openCategory(category) {
   activeCategory = category;
+  editingCategoryItemId = null;
   const backdrop = document.getElementById("modalBackdrop");
   const title = document.getElementById("modalTitle");
   const notes = document.getElementById("modalNotes");
   if (!backdrop || !title || !notes) return;
+
   title.textContent = category;
   notes.value = state.categoryNotes.find(x => x.category === category)?.notes || "";
   backdrop.classList.remove("hidden");
   document.body.classList.add("modal-open");
+  resetCategoryForm();
   renderCategoryItems();
 
-  if (!document.getElementById("closeModal").dataset.bound) {
-    document.getElementById("closeModal").dataset.bound="1";
-    document.getElementById("closeModal").addEventListener("click",closeCategory);
+  const closeBtn = document.getElementById("closeModal");
+  if (closeBtn && !closeBtn.dataset.bound) {
+    closeBtn.dataset.bound="1";
+    closeBtn.addEventListener("click",closeCategory);
     backdrop.addEventListener("click",e=>{if(e.target===backdrop)closeCategory();});
   }
 
@@ -1095,24 +1219,66 @@ function openCategory(category) {
       const input=document.getElementById("categoryItemInput");
       const text=input.value.trim();
       if(!text || !activeCategory) return;
-      const position=state.categoryItems.filter(x=>x.category===activeCategory).length;
-      const localItem={
-        id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,text,done:false,position,
-        created_at:new Date().toISOString(),updated_at:new Date().toISOString()
-      };
-      state.categoryItems.push(localItem);
-      saveOfflineCache();
-      const result=await commitMutation({
-        table:"category_items",action:"insert",payload:localItem
-      },[localItem]);
-      if(result.error){
-        state.categoryItems=state.categoryItems.filter(x=>x.id!==localItem.id);
+
+      const details = collectCategoryDetails();
+
+      if (editingCategoryItemId) {
+        const item = state.categoryItems.find(x => x.id === editingCategoryItemId);
+        if (!item) return;
+
+        item.text = text;
+        item.details = details;
+        item.updated_at = new Date().toISOString();
         saveOfflineCache();
-        return toast(result.error.message,true);
+
+        const result = await commitMutation({
+          table:"category_items",
+          action:"update",
+          payload:{ text:item.text, details:item.details },
+          match:{ id:item.id }
+        }, [item]);
+
+        if(result.error) return toast(result.error.message,true);
+        if(result.data?.[0]) Object.assign(item,result.data[0]);
+        toast("Item updated");
+      } else {
+        const position=state.categoryItems.filter(x=>x.category===activeCategory).length;
+        const localItem={
+          id:crypto.randomUUID(),
+          user_id:currentUser.id,
+          category:activeCategory,
+          text,
+          details,
+          done:false,
+          position,
+          created_at:new Date().toISOString(),
+          updated_at:new Date().toISOString()
+        };
+
+        state.categoryItems.push(localItem);
+        saveOfflineCache();
+
+        const result=await commitMutation({
+          table:"category_items",action:"insert",payload:localItem
+        },[localItem]);
+
+        if(result.error){
+          state.categoryItems=state.categoryItems.filter(x=>x.id!==localItem.id);
+          saveOfflineCache();
+          return toast(result.error.message,true);
+        }
+        toast("Item added");
       }
-      input.value="";
+
+      resetCategoryForm();
       renderCategoryItems();
     });
+  }
+
+  const cancelEdit = document.getElementById("cancelCategoryEdit");
+  if (cancelEdit && !cancelEdit.dataset.bound) {
+    cancelEdit.dataset.bound="1";
+    cancelEdit.addEventListener("click", resetCategoryForm);
   }
 
   const save = document.getElementById("saveNotes");
@@ -1131,6 +1297,29 @@ function openCategory(category) {
 function closeCategory() {
   document.getElementById("modalBackdrop")?.classList.add("hidden");
   document.body.classList.remove("modal-open");
+  editingCategoryItemId = null;
+}
+
+function categoryDetailChips(item) {
+  const d = item.details || {};
+  const labels = [];
+
+  const friendly = {
+    type:"Type", provider:"Provider", date:"Date", status:"Status", due_date:"Due",
+    company:"Client", url:"URL", renewal_date:"Renewal", mileage:"Mileage",
+    vendor:"Vendor", budget:"Budget", person:"For", lot:"Lot", max_price:"Max",
+    end_date:"Ends"
+  };
+
+  Object.entries(d).forEach(([key,value]) => {
+    if (value === "" || value === null || value === undefined) return;
+    if (key === "url") return;
+    let shown = String(value);
+    if (["budget","max_price"].includes(key) && !shown.startsWith("$")) shown = "$" + shown;
+    labels.push(`<span class="category-meta-chip"><b>${esc(friendly[key] || key)}</b> ${esc(shown)}</span>`);
+  });
+
+  return labels.join("");
 }
 
 function renderCategoryItems() {
@@ -1138,17 +1327,29 @@ function renderCategoryItems() {
   const empty=document.getElementById("categoryEmpty");
   const count=document.getElementById("categoryItemCount");
   if(!holder)return;
+
   const items=state.categoryItems.filter(x=>x.category===activeCategory);
   holder.innerHTML="";
+
   items.forEach(item=>{
     const row=document.createElement("div");
-    row.className="category-item"+(item.done?" done":"");
+    row.className="category-item category-item-rich"+(item.done?" done":"");
+
+    const url = item.details?.url;
     row.innerHTML=`
-      <label><input type="checkbox" ${item.done?"checked":""}><span>${esc(item.text)}</span></label>
+      <div class="category-item-main">
+        <label class="category-item-check">
+          <input type="checkbox" ${item.done?"checked":""}>
+          <span class="category-item-title">${esc(item.text)}</span>
+        </label>
+        <div class="category-item-meta">${categoryDetailChips(item)}</div>
+        ${url ? `<a class="category-item-link" href="${esc(url)}" target="_blank" rel="noopener"><i data-lucide="external-link"></i> Open link</a>` : ""}
+      </div>
       <div class="category-item-actions">
         <button class="category-item-edit" aria-label="Edit"><i data-lucide="pencil"></i></button>
         <button class="category-item-delete" aria-label="Delete"><i data-lucide="trash-2"></i></button>
       </div>`;
+
     row.querySelector("input").addEventListener("change",async e=>{
       item.done=e.target.checked;
       row.classList.toggle("done",item.done);
@@ -1158,19 +1359,17 @@ function renderCategoryItems() {
       },[item]);
       if(result.error)toast(result.error.message,true);
     });
-    row.querySelector(".category-item-edit").addEventListener("click",async()=>{
-      const next=prompt("Edit item:",item.text);
-      if(next===null||!next.trim())return;
-      item.text=next.trim();
-      item.updated_at=new Date().toISOString();
-      saveOfflineCache();
-      const result=await commitMutation({
-        table:"category_items",action:"update",payload:{text:item.text},match:{id:item.id}
-      },[item]);
-      if(result.error)return toast(result.error.message,true);
-      if(result.data?.[0])Object.assign(item,result.data[0]);
-      renderCategoryItems();
+
+    row.querySelector(".category-item-edit").addEventListener("click",()=>{
+      editingCategoryItemId=item.id;
+      const input=document.getElementById("categoryItemInput");
+      input.value=item.text;
+      document.getElementById("categorySubmitBtn").textContent="Save";
+      document.getElementById("cancelCategoryEdit").classList.remove("hidden");
+      renderCategorySpecialFields(item);
+      input.focus();
     });
+
     row.querySelector(".category-item-delete").addEventListener("click",async()=>{
       state.categoryItems=state.categoryItems.filter(x=>x.id!==item.id);
       saveOfflineCache();
@@ -1178,10 +1377,13 @@ function renderCategoryItems() {
         table:"category_items",action:"delete",match:{id:item.id}
       });
       if(result.error)return toast(result.error.message,true);
+      if (editingCategoryItemId === item.id) resetCategoryForm();
       renderCategoryItems();
     });
+
     holder.appendChild(row);
   });
+
   if(count)count.textContent=`${items.length} ${items.length===1?"item":"items"}`;
   empty?.classList.toggle("hidden",items.length>0);
   icons();
