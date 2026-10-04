@@ -137,6 +137,84 @@
     </div>
   </div>
 
+
+  <div class="event-modal-backdrop hidden" id="eventModalBackdrop">
+    <div class="event-modal">
+      <div class="event-modal-head">
+        <div>
+          <small id="eventModalEyebrow">Calendar Event</small>
+          <h2 id="eventModalTitle">Add Event</h2>
+        </div>
+        <button class="modal-close" id="closeEventModal" aria-label="Close"><i data-lucide="x"></i></button>
+      </div>
+
+      <form id="eventForm" class="event-form">
+        <input type="hidden" id="eventId">
+
+        <label class="event-field event-field-full">
+          <span>Title</span>
+          <input id="eventTitleInput" type="text" placeholder="What is happening?" required>
+        </label>
+
+        <label class="event-field">
+          <span>Date</span>
+          <input id="eventDateInput" type="date" required>
+        </label>
+
+        <label class="event-toggle">
+          <input id="eventAllDayInput" type="checkbox">
+          <span>All day</span>
+        </label>
+
+        <label class="event-field event-time-field">
+          <span>Start time</span>
+          <input id="eventStartTimeInput" type="time">
+        </label>
+
+        <label class="event-field event-time-field">
+          <span>End time</span>
+          <input id="eventEndTimeInput" type="time">
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Location</span>
+          <div class="field-with-icon">
+            <i data-lucide="map-pin"></i>
+            <input id="eventLocationInput" type="text" placeholder="Address or place">
+          </div>
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Reminder</span>
+          <select id="eventReminderInput">
+            <option value="">No reminder</option>
+            <option value="0">At event time</option>
+            <option value="5">5 minutes before</option>
+            <option value="10">10 minutes before</option>
+            <option value="30">30 minutes before</option>
+            <option value="60">1 hour before</option>
+            <option value="1440">1 day before</option>
+          </select>
+        </label>
+
+        <label class="event-field event-field-full">
+          <span>Notes</span>
+          <textarea id="eventNotesInput" placeholder="Anything you want to remember..."></textarea>
+        </label>
+
+        <div class="event-form-actions">
+          <button type="button" class="soft-btn danger-soft hidden" id="deleteEventBtn">
+            <i data-lucide="trash-2"></i> Delete
+          </button>
+          <div class="event-form-actions-right">
+            <button type="button" class="soft-btn" id="cancelEventBtn">Cancel</button>
+            <button type="submit" class="save-btn" id="saveEventBtn">Save Event</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js.js"></script>
 </body>
