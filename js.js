@@ -461,14 +461,36 @@ async function migrateLocalStorageIfNeeded() {
 }
 
 async function seedRoutineIfNeeded() {
-  if (state.routine.length || !document.querySelector(".routine-list")) return;
-  const labels = [...document.querySelectorAll(".routine-list label span")].map(x => x.textContent.trim());
-  if (!labels.length) return;
-  const rows = labels.map((label, i) => ({ user_id: currentUser.id, label, done: false, position: i }));
-  const { error } = await db.from("routine_items").insert(rows);
-  if (!error) state.routine = await safe(db.from("routine_items").select("*").order("position"));
-}
+  if (state.routine.length || !document.getElementById("routineList")) return;
 
+  const defaults = [
+    { label:"Morning reset", period:"morning" },
+    { label:"Check calendar", period:"morning" },
+    { label:"Meal / water", period:"afternoon" },
+    { label:"Movement / self care", period:"afternoon" },
+    { label:"Evening reset", period:"evening" }
+  ];
+
+  const rows = defaults.map((item, i) => ({
+    id:crypto.randomUUID(),
+    user_id:currentUser.id,
+    label:item.label,
+    done:false,
+    position:i,
+    time_of_day:item.period,
+    repeat_days:[0,1,2,3,4,5,6],
+    last_done_date:null,
+    active:true,
+    created_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  }));
+
+  const { data, error } = await db.from("routine_items").insert(rows).select();
+  if (!error) {
+    state.routine = data || rows;
+    saveOfflineCache();
+  }
+}
 function renderEverything() {
   updateDynamicDateUI();
   renderTaskSection("homeTodoList","homeTodoForm","homeTodoInput","clearCompleted","home");
@@ -917,26 +939,248 @@ function renderHomeEvents() {
   });
 }
 
+let routineFilter = "all";
+let editingRoutineId = null;
+
+function routineWeekday() {
+  return localDateObject().getDay();
+}
+
+function routineRunsToday(item) {
+  const days = Array.isArray(item.repeat_days) && item.repeat_days.length
+    ? item.repeat_days.map(Number)
+    : [0,1,2,3,4,5,6];
+  return item.active !== false && days.includes(routineWeekday());
+}
+
+function routineIsDoneToday(item) {
+  return !!item.done && item.last_done_date === todayISO();
+}
+
+function routineRepeatLabel(item) {
+  const days = Array.isArray(item.repeat_days) ? item.repeat_days.map(Number).sort() : [0,1,2,3,4,5,6];
+  const daily = [0,1,2,3,4,5,6];
+  const weekdays = [1,2,3,4,5];
+  const weekends = [0,6];
+  if (JSON.stringify(days) === JSON.stringify(daily)) return "Every day";
+  if (JSON.stringify(days) === JSON.stringify(weekdays)) return "Weekdays";
+  if (JSON.stringify(days) === JSON.stringify(weekends)) return "Weekends";
+  const names = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  return days.map(d=>names[d]).join(", ");
+}
+
 function renderRoutine() {
-  const boxes = [...document.querySelectorAll(".routine-list input[type=checkbox]")];
-  if (!boxes.length) return;
-  boxes.forEach((box,i) => {
-    const row = state.routine.find(x => x.position === i) || state.routine[i];
-    if (!row) return;
-    box.checked = !!row.done;
-    if (!box.dataset.bound) {
-      box.dataset.bound = "1";
-      box.addEventListener("change", async () => {
-        row.done = box.checked;
-        saveOfflineCache();
-        const result = await commitMutation({
-          table:"routine_items", action:"update", payload:{ done:row.done }, match:{ id:row.id }
-        }, [row]);
-        if (result.error) toast(result.error.message, true);
-      });
+  const list = document.getElementById("routineList");
+  if (!list) return;
+
+  const dateLabel = document.getElementById("routineDateLabel");
+  if (dateLabel) dateLabel.textContent = `${formatLocalLongDate()} · resets daily`;
+
+  const rows = state.routine
+    .filter(routineRunsToday)
+    .filter(item => routineFilter === "all" || (item.time_of_day || "anytime") === routineFilter)
+    .sort((a,b)=>(a.position ?? 0)-(b.position ?? 0));
+
+  list.innerHTML = "";
+  if (!rows.length) {
+    list.innerHTML = '<div class="empty-inline">No routines scheduled here today.</div>';
+  }
+
+  rows.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "routine-item" + (routineIsDoneToday(item) ? " done" : "");
+    row.innerHTML = `
+      <label class="routine-check">
+        <input type="checkbox" ${routineIsDoneToday(item) ? "checked" : ""}>
+        <span>
+          <b>${esc(item.label)}</b>
+          <small>${esc((item.time_of_day || "anytime").replace(/^./,c=>c.toUpperCase()))} · ${esc(routineRepeatLabel(item))}</small>
+        </span>
+      </label>
+      <button class="routine-edit-btn" aria-label="Edit routine"><i data-lucide="pencil"></i></button>`;
+
+    row.querySelector("input").addEventListener("change", async e => {
+      const checked = e.target.checked;
+      item.done = checked;
+      item.last_done_date = checked ? todayISO() : null;
+      item.updated_at = new Date().toISOString();
+      row.classList.toggle("done", checked);
+      saveOfflineCache();
+
+      const result = await commitMutation({
+        table:"routine_items",
+        action:"update",
+        payload:{ done:item.done, last_done_date:item.last_done_date },
+        match:{ id:item.id }
+      }, [item]);
+
+      if (result.error) toast(result.error.message,true);
+    });
+
+    row.querySelector(".routine-edit-btn").addEventListener("click",()=>openRoutineModal(item));
+    list.appendChild(row);
+  });
+
+  bindRoutineControls();
+  icons();
+}
+
+function bindRoutineControls() {
+  const add = document.getElementById("addRoutineBtn");
+  if (add && !add.dataset.bound) {
+    add.dataset.bound="1";
+    add.addEventListener("click",()=>openRoutineModal());
+  }
+
+  document.querySelectorAll(".routine-filter").forEach(btn=>{
+    if (btn.dataset.bound) return;
+    btn.dataset.bound="1";
+    btn.addEventListener("click",()=>{
+      routineFilter = btn.dataset.routineFilter;
+      document.querySelectorAll(".routine-filter").forEach(x=>x.classList.toggle("active",x===btn));
+      renderRoutine();
+    });
+  });
+
+  const form = document.getElementById("routineForm");
+  if (!form || form.dataset.bound) return;
+  form.dataset.bound="1";
+
+  document.getElementById("closeRoutineModal")?.addEventListener("click",closeRoutineModal);
+  document.getElementById("cancelRoutineBtn")?.addEventListener("click",closeRoutineModal);
+  document.getElementById("routineModalBackdrop")?.addEventListener("click",e=>{
+    if(e.target.id==="routineModalBackdrop") closeRoutineModal();
+  });
+  document.getElementById("routineRepeatPreset")?.addEventListener("change",e=>{
+    setRoutineDayPreset(e.target.value);
+  });
+
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();
+    const label=document.getElementById("routineLabelInput").value.trim();
+    if(!label)return;
+
+    const period=document.getElementById("routinePeriodInput").value;
+    const repeat_days=[...document.querySelectorAll("#routineDays input:checked")].map(x=>Number(x.value));
+    if(!repeat_days.length)return toast("Choose at least one repeat day",true);
+
+    const wasEditing=!!editingRoutineId;
+    const id=editingRoutineId||crypto.randomUUID();
+    const existing=state.routine.find(x=>x.id===id);
+
+    const localRow={
+      ...(existing||{}),
+      id,
+      user_id:currentUser.id,
+      label,
+      time_of_day:period,
+      repeat_days,
+      active:true,
+      done:existing?.done||false,
+      last_done_date:existing?.last_done_date||null,
+      position:existing?.position ?? state.routine.length,
+      created_at:existing?.created_at||new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+
+    if(wasEditing){
+      const idx=state.routine.findIndex(x=>x.id===id);
+      if(idx>=0)state.routine[idx]=localRow;
+    }else{
+      state.routine.push(localRow);
     }
+    saveOfflineCache();
+
+    const mutation=wasEditing
+      ? {table:"routine_items",action:"update",payload:{
+          label,time_of_day:period,repeat_days,active:true
+        },match:{id}}
+      : {table:"routine_items",action:"insert",payload:localRow};
+
+    const result=await commitMutation(mutation,[localRow]);
+    if(result.error)return toast(result.error.message,true);
+
+    if(result.data?.[0]){
+      const idx=state.routine.findIndex(x=>x.id===id);
+      if(idx>=0)state.routine[idx]=result.data[0];
+    }
+
+    closeRoutineModal();
+    renderRoutine();
+    toast(wasEditing?"Routine updated":"Routine added");
+  });
+
+  document.getElementById("deleteRoutineBtn")?.addEventListener("click",async()=>{
+    if(!editingRoutineId)return;
+    if(!confirm("Delete this routine?"))return;
+    const id=editingRoutineId;
+    state.routine=state.routine.filter(x=>x.id!==id);
+    saveOfflineCache();
+
+    const result=await commitMutation({
+      table:"routine_items",action:"delete",match:{id}
+    });
+    if(result.error)return toast(result.error.message,true);
+
+    closeRoutineModal();
+    renderRoutine();
+    toast("Routine deleted");
   });
 }
+
+function setRoutineDayPreset(preset) {
+  const map={
+    daily:[0,1,2,3,4,5,6],
+    weekdays:[1,2,3,4,5],
+    weekends:[0,6]
+  };
+  if(!map[preset])return;
+  document.querySelectorAll("#routineDays input").forEach(box=>{
+    box.checked=map[preset].includes(Number(box.value));
+  });
+}
+
+function detectRoutinePreset(days) {
+  const d=[...(days||[])].map(Number).sort();
+  const eq=a=>JSON.stringify(d)===JSON.stringify(a);
+  if(eq([0,1,2,3,4,5,6]))return "daily";
+  if(eq([1,2,3,4,5]))return "weekdays";
+  if(eq([0,6]))return "weekends";
+  return "custom";
+}
+
+function openRoutineModal(item=null) {
+  const modal=document.getElementById("routineModalBackdrop");
+  if(!modal)return;
+  editingRoutineId=item?.id||null;
+
+  document.getElementById("routineModalTitle").textContent=item?"Edit Routine":"Add Routine";
+  document.getElementById("routineId").value=item?.id||"";
+  document.getElementById("routineLabelInput").value=item?.label||"";
+  document.getElementById("routinePeriodInput").value=item?.time_of_day||"morning";
+
+  const days=Array.isArray(item?.repeat_days)&&item.repeat_days.length
+    ? item.repeat_days.map(Number)
+    : [0,1,2,3,4,5,6];
+
+  document.getElementById("routineRepeatPreset").value=detectRoutinePreset(days);
+  document.querySelectorAll("#routineDays input").forEach(box=>{
+    box.checked=days.includes(Number(box.value));
+  });
+
+  document.getElementById("deleteRoutineBtn").classList.toggle("hidden",!item);
+  modal.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(()=>document.getElementById("routineLabelInput")?.focus(),50);
+  icons();
+}
+
+function closeRoutineModal() {
+  document.getElementById("routineModalBackdrop")?.classList.add("hidden");
+  editingRoutineId=null;
+  document.body.classList.remove("modal-open");
+}
+
 
 function renderFocus() {
   const focus = document.getElementById("focusNote");
@@ -1572,7 +1816,7 @@ async function handleSession(session) {
 }
 
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeCategory();closeEventModal();document.getElementById("profilePopover")?.remove();}
+  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();document.getElementById("profilePopover")?.remove();}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"&&document.getElementById("saveNoteBtn")){
     e.preventDefault();document.getElementById("saveNoteBtn").click();
   }
