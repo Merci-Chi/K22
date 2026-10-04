@@ -1910,6 +1910,328 @@ function updateCategoryDocumentMeta() {
 }
 
 
+const CATEGORY_STARTER_TEMPLATES = {
+  "Love": [
+    ["section","People & Relationships",{style:"card"}],
+    ["paragraph","Important people, memories, dates, and things worth remembering."],
+    ["section","Plans & Ideas",{}],
+    ["bullet","Date ideas"],
+    ["bullet","Things to do together"],
+    ["section","Memories",{}],
+    ["paragraph","Favorite moments and notes."]
+  ],
+  "Medical": [
+    ["section","Doctors & Providers",{style:"card"}],
+    ["bullet","Primary care"],
+    ["bullet","Dental"],
+    ["bullet","Vision"],
+    ["section","Appointments",{}],
+    ["checklist","Upcoming appointment"],
+    ["section","Medications & Health Notes",{}],
+    ["paragraph","Keep medication, symptom, and health notes here."],
+    ["section","Documents",{}],
+    ["callout","Add important medical records and files below."]
+  ],
+  "Goals": [
+    ["section","Main Goals",{style:"card"}],
+    ["checklist","Goal 1"],
+    ["checklist","Goal 2"],
+    ["section","Why It Matters",{}],
+    ["paragraph","Write what you are working toward and why."],
+    ["section","Next Steps",{}],
+    ["bullet","Small next action"],
+    ["section","Progress Notes",{}],
+    ["paragraph","Track wins, changes, and lessons."]
+  ],
+  "Routine": [
+    ["section","Morning",{style:"card"}],
+    ["checklist","Morning routine item"],
+    ["section","Afternoon",{}],
+    ["checklist","Afternoon routine item"],
+    ["section","Evening",{}],
+    ["checklist","Evening routine item"],
+    ["section","Notes",{}],
+    ["paragraph","What is working and what you want to change."]
+  ],
+  "Education": [
+    ["section","Current Learning",{style:"card"}],
+    ["bullet","Course, class, or topic"],
+    ["section","Notes",{}],
+    ["paragraph","Key ideas and things to remember."],
+    ["section","Resources",{}],
+    ["link","Useful resource"],
+    ["section","Next Steps",{}],
+    ["checklist","Study or learning task"]
+  ],
+  "Trackers": [
+    ["section","What I'm Tracking",{style:"card"}],
+    ["paragraph","Add the thing you want to measure or notice."],
+    ["section","Current Status",{}],
+    ["callout","Latest update"],
+    ["section","Log",{}],
+    ["bullet","New entry"]
+  ],
+  "Cooking": [
+    ["section","Favorite Recipes",{style:"card"}],
+    ["heading2","Recipe name"],
+    ["bullet","Ingredient"],
+    ["numbered","Step 1"],
+    ["section","Meal Ideas",{}],
+    ["bullet","Meal idea"],
+    ["section","Kitchen Notes",{}],
+    ["paragraph","Substitutions, favorites, and things to try."]
+  ],
+  "My Food Order": [
+    ["section","Go-To Orders",{style:"card"}],
+    ["heading2","Restaurant"],
+    ["bullet","My usual order"],
+    ["bullet","Customizations"],
+    ["section","Favorites",{}],
+    ["bullet","Favorite drink"],
+    ["bullet","Favorite side"],
+    ["section","Try Next",{}],
+    ["checklist","Something new to order"]
+  ],
+  "Lifestyle Notes": [
+    ["section","Quick Reference",{style:"card"}],
+    ["paragraph","Sizes, preferences, routines, and useful details."],
+    ["section","Things I Like",{}],
+    ["bullet","Favorite"],
+    ["section","Things to Remember",{}],
+    ["callout","Important lifestyle note"]
+  ],
+  "Fashion": [
+    ["section","Style Notes",{style:"card"}],
+    ["paragraph","Colors, fits, brands, and styles you like."],
+    ["section","Outfit Ideas",{}],
+    ["bullet","Outfit idea"],
+    ["section","Sizing",{}],
+    ["columns",""],
+    ["section","Wishlist",{}],
+    ["checklist","Clothing item"]
+  ],
+  "Parties": [
+    ["section","Party Overview",{style:"card"}],
+    ["columns",""],
+    ["section","Guest List",{}],
+    ["checklist","Guest"],
+    ["section","Decor & Theme",{}],
+    ["bullet","Decor idea"],
+    ["section","Food & Drinks",{}],
+    ["bullet","Food or drink"],
+    ["section","To Do",{}],
+    ["checklist","Party task"]
+  ],
+  "Wishlist": [
+    ["section","Top Wants",{style:"card"}],
+    ["checklist","Wishlist item"],
+    ["section","Compare Later",{}],
+    ["bullet","Item to research"],
+    ["section","Ideas",{}],
+    ["paragraph","Things you might want later."]
+  ],
+  "Business": [
+    ["section","Current Focus",{style:"card"}],
+    ["callout","Main business priority"],
+    ["section","Projects",{}],
+    ["checklist","Active project"],
+    ["section","Clients",{}],
+    ["bullet","Client / lead"],
+    ["section","Deadlines",{}],
+    ["checklist","Upcoming deadline"],
+    ["section","Operations & Notes",{}],
+    ["paragraph","Processes, decisions, and business notes."],
+    ["section","Important Links",{}],
+    ["link","Business link"]
+  ],
+  "Websites": [
+    ["section","Active Websites",{style:"card"}],
+    ["heading2","Website name"],
+    ["link","Website URL"],
+    ["checklist","Next website task"],
+    ["section","Domains & Renewals",{}],
+    ["bullet","Domain / renewal date"],
+    ["section","Ideas & Changes",{}],
+    ["bullet","Website improvement"],
+    ["section","Reference",{}],
+    ["paragraph","Hosting, design, and project notes."]
+  ],
+  "Investments": [
+    ["section","Watchlist",{style:"card"}],
+    ["bullet","Investment to watch"],
+    ["section","Research",{}],
+    ["heading2","Investment / company"],
+    ["paragraph","Why it interests me."],
+    ["section","Notes & Decisions",{}],
+    ["callout","Important investment note"]
+  ],
+  "Networking": [
+    ["section","People to Follow Up With",{style:"card"}],
+    ["checklist","Name / follow-up"],
+    ["section","Connections",{}],
+    ["bullet","Person — how we connected"],
+    ["section","Opportunities",{}],
+    ["bullet","Opportunity"],
+    ["section","Conversation Notes",{}],
+    ["paragraph","Useful details to remember."]
+  ],
+  "Legal": [
+    ["section","Important Matters",{style:"card"}],
+    ["callout","Current legal priority"],
+    ["section","Deadlines",{}],
+    ["checklist","Deadline / filing"],
+    ["section","Documents",{}],
+    ["paragraph","Keep related files below."],
+    ["section","Notes",{}],
+    ["paragraph","Legal references and notes."]
+  ],
+  "Nellis Auction": [
+    ["section","Watching",{style:"card"}],
+    ["checklist","Auction lot"],
+    ["section","Bid Limits",{}],
+    ["bullet","Item — max price"],
+    ["section","Won / Pickup",{}],
+    ["checklist","Pickup item"],
+    ["section","Notes",{}],
+    ["paragraph","Condition, value, pickup, and purchase notes."]
+  ],
+  "Ideas": [
+    ["section","Inbox",{style:"card"}],
+    ["bullet","New idea"],
+    ["section","Worth Exploring",{}],
+    ["heading2","Idea"],
+    ["paragraph","Why it could be useful."],
+    ["section","Someday",{}],
+    ["bullet","Future idea"]
+  ],
+  "Gifts": [
+    ["section","People",{style:"card"}],
+    ["heading2","Person"],
+    ["bullet","Gift idea"],
+    ["section","Need to Buy",{}],
+    ["checklist","Gift"],
+    ["section","Bought / Ready",{}],
+    ["checklist","Purchased gift"],
+    ["section","Notes",{}],
+    ["paragraph","Sizes, preferences, and reminders."]
+  ],
+  "Wedding": [
+    ["section","Wedding Overview",{style:"card"}],
+    ["columns",""],
+    ["section","To Do",{}],
+    ["checklist","Wedding task"],
+    ["section","Vendors",{}],
+    ["bullet","Vendor"],
+    ["section","Budget",{}],
+    ["bullet","Budget item"],
+    ["section","Guest Ideas",{}],
+    ["bullet","Guest / group"],
+    ["section","Inspiration",{}],
+    ["paragraph","Add photos, ideas, colors, and inspiration below."]
+  ],
+  "Kids": [
+    ["section","Ideas for the Future",{style:"card"}],
+    ["bullet","Idea"],
+    ["section","Names & Favorites",{}],
+    ["bullet","Name or favorite"],
+    ["section","Things to Remember",{}],
+    ["paragraph","Notes, plans, and memories you want to keep."]
+  ],
+  "Home": [
+    ["section","Current Home Projects",{style:"card"}],
+    ["checklist","Home project"],
+    ["section","Rooms & Ideas",{}],
+    ["heading2","Room"],
+    ["bullet","Idea"],
+    ["section","Maintenance",{}],
+    ["checklist","Maintenance task"],
+    ["section","Things to Buy",{}],
+    ["checklist","Home item"]
+  ],
+  "Car": [
+    ["section","Car Overview",{style:"card"}],
+    ["columns",""],
+    ["section","Maintenance",{}],
+    ["checklist","Maintenance item"],
+    ["section","Registration & Insurance",{}],
+    ["checklist","Renewal / document"],
+    ["section","Repairs",{}],
+    ["bullet","Repair note"],
+    ["section","Receipts & Documents",{}],
+    ["paragraph","Add related files below."]
+  ]
+};
+
+function starterTemplateRows(category,startPosition=0){
+  const template=CATEGORY_STARTER_TEMPLATES[category]||[];
+  return template.map((entry,index)=>{
+    const [type,value,settings={}] = entry;
+    let content={text:value||""};
+    if(type==="checklist")content={text:value||"",checked:false};
+    if(type==="link")content={text:value||"",url:""};
+    if(type==="columns")content={text:"",left:"",right:""};
+    return {
+      id:crypto.randomUUID(),
+      user_id:currentUser.id,
+      category,
+      type,
+      content,
+      settings,
+      position:startPosition+index,
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+  });
+}
+
+async function applyCategoryStarterTemplate(){
+  if(!currentUser||!activeCategory||!categoryBlocksAvailable)return;
+  const template=CATEGORY_STARTER_TEMPLATES[activeCategory];
+  if(!template?.length)return toast("No starter template is available for this category yet",true);
+
+  const existing=blocksForActiveCategory();
+  if(existing.length){
+    const ok=confirm("This will add the "+activeCategory+" starter template below your existing page. Nothing you already wrote will be deleted. Continue?");
+    if(!ok)return;
+  }
+
+  const rows=starterTemplateRows(activeCategory,existing.length);
+  state.categoryBlocks.push(...rows);
+  saveOfflineCache();
+  renderCategoryBlocks();
+
+  const result=await commitMutation({
+    table:"category_blocks",
+    action:"insert",
+    payload:rows
+  },rows);
+
+  if(result.error){
+    const ids=new Set(rows.map(x=>x.id));
+    state.categoryBlocks=state.categoryBlocks.filter(x=>!ids.has(x.id));
+    saveOfflineCache();
+    renderCategoryBlocks();
+    return toast(result.error.message,true);
+  }
+
+  if(Array.isArray(result.data)&&result.data.length){
+    const byId=new Map(result.data.map(x=>[x.id,x]));
+    state.categoryBlocks=state.categoryBlocks.map(x=>byId.get(x.id)||x);
+  }
+
+  renderCategoryBlocks();
+  updateCategoryDocumentMeta();
+  toast(activeCategory+" starter template added");
+  setTimeout(()=>document.querySelector('[data-block-id="'+rows[0].id+'"]')?.scrollIntoView({behavior:"smooth",block:"center"}),80);
+}
+
+function bindCategoryStarterTemplate(){
+  const btn=document.getElementById("applyCategoryTemplate");
+  if(!btn||btn.dataset.bound)return;
+  btn.dataset.bound="1";
+  btn.addEventListener("click",applyCategoryStarterTemplate);
+}
+
 const CATEGORY_BLOCK_TYPES = {
   paragraph:{label:"Text",icon:"pilcrow",placeholder:"Write something..."},
   heading1:{label:"Heading 1",icon:"heading-1",placeholder:"Big heading"},
@@ -2899,6 +3221,9 @@ function renderCategoryBlocks() {
 
   const rows=blocksForActiveCategory();
   empty?.classList.toggle("hidden",rows.length>0);
+  if(!rows.length && empty){
+    empty.innerHTML='<div class="category-block-empty-icon"><i data-lucide="wand-sparkles"></i></div><b>Build your '+esc(activeCategory)+' page</b><span>Start from scratch with Add block, or use the category starter template above.</span>';
+  }
   if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
 
   rows.forEach((block,index)=>{
@@ -2983,6 +3308,7 @@ function renderCategoryBlocks() {
 
   bindCategoryBlockMenu();
   bindCategoryOutline();
+  bindCategoryStarterTemplate();
   renderCategoryOutline();
   icons();
 }
