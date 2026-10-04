@@ -126,10 +126,14 @@
             <span id="categoryItemCount">0 items</span>
           </div>
 
-          <form id="categoryItemForm" class="category-quick-add">
-            <i data-lucide="plus"></i>
-            <input id="categoryItemInput" type="text" placeholder="Add something..." />
-            <button type="submit">Add</button>
+          <form id="categoryItemForm" class="category-entry-form">
+            <div class="category-quick-add">
+              <i data-lucide="plus"></i>
+              <input id="categoryItemInput" type="text" placeholder="Add something..." />
+              <button id="categorySubmitBtn" type="submit">Add</button>
+            </div>
+            <div id="categorySpecialFields" class="category-special-fields hidden"></div>
+            <button type="button" id="cancelCategoryEdit" class="category-cancel-edit hidden">Cancel editing</button>
           </form>
 
           <div id="categoryItems" class="category-items"></div>
