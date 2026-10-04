@@ -907,3 +907,19 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   .security-password-form button:last-child{grid-column:auto}
   .security-session-grid{grid-template-columns:1fr}
 }
+
+
+/* Manual access login */
+.manual-access-note{
+  margin-top:4px;
+  padding:9px 10px;
+  border-radius:11px;
+  background:#f4f0eb;
+  color:#6f6963;
+  display:flex;
+  align-items:flex-start;
+  gap:7px;
+  font-size:10.5px;
+  line-height:1.4
+}
+.manual-access-note svg{width:15px;height:15px;flex:0 0 auto;margin-top:1px}
