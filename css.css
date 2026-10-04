@@ -554,3 +554,103 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   .todo-task-card{padding:10px}
   .todo-subtasks,.todo-task-note{margin-left:28px}
 }
+
+
+/* Smart Home dashboard */
+.smart-home-strip{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;
+  margin:0 0 14px;
+}
+.smart-stat{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:11px;
+  padding:13px;
+  border-radius:17px;
+  border:1px solid rgba(0,0,0,.055);
+  background:#fffdfb;
+  box-shadow:0 8px 24px rgba(0,0,0,.045);
+  text-decoration:none;
+  color:inherit;
+}
+.smart-stat:hover{transform:translateY(-1px)}
+.smart-stat-icon{
+  width:38px;height:38px;border-radius:12px;
+  display:grid;place-items:center;flex:0 0 auto;
+  background:#f3eee8
+}
+.smart-stat-icon svg{width:18px;height:18px}
+.smart-stat>span:last-child{
+  min-width:0;display:flex;flex-direction:column
+}
+.smart-stat small{
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:#888
+}
+.smart-stat b{
+  margin-top:2px;font-family:Georgia,serif;font-size:18px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.smart-stat em{
+  margin-top:2px;font-size:10px;font-style:normal;color:#777;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.smart-stat.danger .smart-stat-icon{background:#f8e2e2;color:#9b4444}
+.smart-stat.blue .smart-stat-icon{background:#e3f0f8;color:#55768d}
+.smart-stat.green .smart-stat-icon{background:#e7f2e3;color:#5d7c56}
+.smart-stat.gold .smart-stat-icon{background:#f7edd7;color:#94702f}
+
+.home-quick-capture{
+  margin:0 0 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 16px;
+}
+.home-capture-copy{
+  display:flex;align-items:center;gap:11px;min-width:0
+}
+.home-capture-icon{
+  width:40px;height:40px;border-radius:13px;background:#f4ece5;
+  display:grid;place-items:center;flex:0 0 auto
+}
+.home-capture-icon svg{width:19px;height:19px}
+.home-capture-copy h2{
+  margin:0;font-family:Georgia,serif;font-size:19px
+}
+.home-capture-copy p{
+  margin:3px 0 0;font-size:10.5px;color:#777
+}
+.home-capture-form{
+  flex:1;max-width:680px;
+  display:grid;grid-template-columns:130px minmax(0,1fr) auto;
+  gap:7px;align-items:center
+}
+.home-capture-form select,.home-capture-form input{
+  height:40px;border:1px solid rgba(0,0,0,.09);background:#fff;
+  border-radius:12px;padding:0 11px;outline:0;min-width:0
+}
+.home-capture-form select{font-size:11px}
+.home-capture-form button{
+  height:40px;border:0;background:#292623;color:#fff;border-radius:12px;
+  padding:0 13px;display:flex;align-items:center;gap:6px;font-weight:700
+}
+.home-capture-form button svg{width:15px;height:15px}
+
+@media(max-width:1000px){
+  .smart-home-strip{grid-template-columns:1fr 1fr}
+  .home-quick-capture{align-items:stretch;flex-direction:column}
+  .home-capture-form{max-width:none}
+}
+@media(max-width:560px){
+  .smart-home-strip{grid-template-columns:1fr 1fr;gap:7px}
+  .smart-stat{padding:10px;gap:8px}
+  .smart-stat-icon{width:32px;height:32px;border-radius:10px}
+  .smart-stat b{font-size:15px}
+  .smart-stat em{font-size:9px}
+  .home-capture-form{grid-template-columns:1fr}
+  .home-capture-form button{justify-content:center}
+}
