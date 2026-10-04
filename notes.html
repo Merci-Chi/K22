@@ -56,6 +56,21 @@
   <article class="panel note-editor">
     <input id="noteTitle" class="note-title-input" placeholder="Untitled note" />
     <textarea id="noteBody" class="note-body-input" placeholder="Start writing..."></textarea>
+
+    <section class="attachment-section note-attachments">
+      <div class="attachment-head">
+        <div>
+          <h3><i data-lucide="paperclip"></i> Attachments</h3>
+          <small id="noteAttachmentCount">0 files</small>
+        </div>
+        <label class="attachment-upload-btn">
+          <input id="noteAttachmentInput" type="file" multiple hidden>
+          <i data-lucide="upload"></i> Add File
+        </label>
+      </div>
+      <div id="noteAttachments" class="attachment-list"></div>
+    </section>
+
     <div class="editor-actions">
       <button class="soft-btn danger-soft" id="deleteNoteBtn"><i data-lucide="trash-2"></i> Delete</button>
       <button class="save-btn small-save" id="saveNoteBtn">Save Note</button>
