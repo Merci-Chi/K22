@@ -43,6 +43,28 @@
         </div>
       </header>
 
+      <section class="smart-home-strip">
+        <a class="smart-stat danger" href="today.html" id="homeOverdueCard">
+          <span class="smart-stat-icon"><i data-lucide="triangle-alert"></i></span>
+          <span><small>Overdue</small><b id="homeOverdueCount">0</b><em id="homeOverdueText">Nothing overdue</em></span>
+        </a>
+
+        <a class="smart-stat blue" href="calendar.html" id="homeNextEventCard">
+          <span class="smart-stat-icon"><i data-lucide="calendar-clock"></i></span>
+          <span><small>Next Event</small><b id="homeNextEventTitle">No events</b><em id="homeNextEventTime">Calendar is clear</em></span>
+        </a>
+
+        <a class="smart-stat green" href="today.html" id="homeRoutineCard">
+          <span class="smart-stat-icon"><i data-lucide="repeat-2"></i></span>
+          <span><small>Routine</small><b id="homeRoutineProgress">0 / 0</b><em id="homeRoutineText">Nothing scheduled</em></span>
+        </a>
+
+        <a class="smart-stat gold" href="today.html" id="homePriorityCard">
+          <span class="smart-stat-icon"><i data-lucide="flag"></i></span>
+          <span><small>Priority</small><b id="homePriorityTitle">All clear</b><em id="homePriorityText">No high-priority tasks</em></span>
+        </a>
+      </section>
+
       <section class="hero-grid">
         <article class="panel today-panel">
           <div class="panel-title-row">
@@ -85,6 +107,26 @@
             <blockquote>A more organized<br>life is a freer life.</blockquote>
           </div>
         </article>
+      </section>
+
+      <section class="panel home-quick-capture">
+        <div class="home-capture-copy">
+          <div class="home-capture-icon"><i data-lucide="zap"></i></div>
+          <div>
+            <h2>Quick Capture</h2>
+            <p>Get it out of your head now. Organize it later.</p>
+          </div>
+        </div>
+
+        <form id="homeCaptureForm" class="home-capture-form">
+          <select id="homeCaptureType" aria-label="Capture type">
+            <option value="task">Inbox Task</option>
+            <option value="note">Note</option>
+            <option value="event">Event Today</option>
+          </select>
+          <input id="homeCaptureInput" type="text" placeholder="Type anything..." autocomplete="off">
+          <button type="submit"><i data-lucide="plus"></i><span>Add</span></button>
+        </form>
       </section>
 
       <section class="category-row">
