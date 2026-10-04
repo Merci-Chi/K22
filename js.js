@@ -6,6 +6,8 @@ const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 let currentUser = null;
 let realtimeChannel = null;
+let deferredInstallPrompt = null;
+let swRegistration = null;
 let state = {
   tasks: [],
   events: [],
@@ -993,6 +995,98 @@ function bindSearch() {
   });
 }
 
+
+function isStandaloneApp() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent);
+}
+
+async function installK22() {
+  if (isStandaloneApp()) {
+    toast("K22 is already installed");
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const choice = await deferredInstallPrompt.userChoice;
+    if (choice.outcome === "accepted") toast("K22 installation started");
+    deferredInstallPrompt = null;
+    document.getElementById("profilePopover")?.remove();
+    return;
+  }
+
+  if (isIOS()) {
+    alert("To install K22 on iPhone/iPad: tap Safari’s Share button, then choose “Add to Home Screen.”");
+    return;
+  }
+
+  alert("Your browser will offer installation once K22 meets its install requirements. You can also look for “Install app” in your browser menu.");
+}
+
+function showUpdateBanner(registration) {
+  if (document.getElementById("pwaUpdateBanner")) return;
+  const banner = document.createElement("div");
+  banner.id = "pwaUpdateBanner";
+  banner.className = "pwa-update-banner";
+  banner.innerHTML = `
+    <div>
+      <b>New K22 update ready</b>
+      <span>Reload to use the newest version.</span>
+    </div>
+    <button id="applyK22Update">Update</button>`;
+  document.body.appendChild(banner);
+  document.getElementById("applyK22Update")?.addEventListener("click", () => {
+    registration.waiting?.postMessage("SKIP_WAITING");
+  });
+}
+
+async function registerK22PWA() {
+  if (!("serviceWorker" in navigator)) return;
+
+  try {
+    swRegistration = await navigator.serviceWorker.register("./sw.js");
+
+    if (swRegistration.waiting && navigator.serviceWorker.controller) {
+      showUpdateBanner(swRegistration);
+    }
+
+    swRegistration.addEventListener("updatefound", () => {
+      const worker = swRegistration.installing;
+      if (!worker) return;
+      worker.addEventListener("statechange", () => {
+        if (worker.state === "installed" && navigator.serviceWorker.controller) {
+          showUpdateBanner(swRegistration);
+        }
+      });
+    });
+
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (reloading) return;
+      reloading = true;
+      window.location.reload();
+    });
+  } catch (error) {
+    console.warn("K22 service worker registration failed:", error);
+  }
+}
+
+window.addEventListener("beforeinstallprompt", event => {
+  event.preventDefault();
+  deferredInstallPrompt = event;
+});
+
+window.addEventListener("appinstalled", () => {
+  deferredInstallPrompt = null;
+  document.getElementById("profilePopover")?.remove();
+  toast("K22 installed");
+});
+
+
 function bindHeaderButtons() {
   const bell=document.querySelector(".round-btn");
   if(bell&&!bell.dataset.bound){bell.dataset.bound="1";bell.addEventListener("click",()=>toast("You’re all caught up — no new notifications"));}
@@ -1009,8 +1103,10 @@ function bindHeaderButtons() {
         <b>Kiara</b>
         <small class="profile-email">${esc(currentUser?.email||"")}</small>
         <a href="categories.html"><i data-lucide="layout-grid"></i> Open Categories</a>
+        ${isStandaloneApp() ? "" : '<button id="installK22Btn"><i data-lucide="download"></i> Install K22 App</button>'}
         <button class="signout-btn" id="signOutBtn"><i data-lucide="log-out"></i> Sign Out</button>`;
       document.body.appendChild(p);
+      document.getElementById("installK22Btn")?.addEventListener("click",installK22);
       document.getElementById("signOutBtn").addEventListener("click",async()=>{await db.auth.signOut();});
       icons();
     });
@@ -1054,6 +1150,7 @@ window.addEventListener("online",()=>{setSyncStatus("Back online");loadAll();});
 window.addEventListener("offline",()=>setSyncStatus("Offline",true));
 
 (async function init(){
+  registerK22PWA();
   updateDynamicDateUI();
   document.querySelector(".app-shell")?.classList.add("auth-hidden");
   makeAuthGate();
