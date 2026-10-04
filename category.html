@@ -53,46 +53,50 @@
           <p id="categoryPageDescription">Your space for everything that belongs here.</p>
           <div class="category-page-meta">
             <span><i data-lucide="clock-3"></i><span id="categoryLastEdited">Ready</span></span>
-            <span><i data-lucide="list-checks"></i><span id="categoryItemCount">0 items</span></span>
+            <span><i data-lucide="blocks"></i><span id="categoryBlockCount">0 blocks</span></span>
           </div>
         </header>
 
         <section class="category-document-body">
-          <section class="category-page-section">
-            <div class="category-section-title">
+          <section class="category-page-section category-block-editor-section">
+            <div class="category-section-title category-editor-title">
               <div>
-                <small>Collection</small>
-                <h2>Items</h2>
-              </div>
-            </div>
-
-            <form id="categoryItemForm" class="category-entry-form category-page-entry">
-              <div class="category-quick-add">
-                <i data-lucide="plus"></i>
-                <input id="categoryItemInput" type="text" placeholder="Add something..." />
-                <button id="categorySubmitBtn" type="submit">Add</button>
-              </div>
-              <div id="categorySpecialFields" class="category-special-fields hidden"></div>
-              <button type="button" id="cancelCategoryEdit" class="category-cancel-edit hidden">Cancel editing</button>
-            </form>
-
-            <div id="categoryItems" class="category-items category-page-items"></div>
-            <div id="categoryEmpty" class="category-empty">
-              <i data-lucide="inbox"></i>
-              <b>Nothing here yet</b>
-              <span>Add your first item above.</span>
-            </div>
-          </section>
-
-          <section class="category-page-section category-page-notes">
-            <div class="category-section-title">
-              <div>
-                <small>Writing space</small>
-                <h2>Notes</h2>
+                <small>Document</small>
+                <h2>Your Page</h2>
               </div>
               <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
             </div>
-            <textarea id="modalNotes" placeholder="Write notes for this category..."></textarea>
+
+            <div id="categoryBlockCanvas" class="category-block-canvas"></div>
+
+            <div id="categoryBlockEmpty" class="category-block-empty">
+              <div class="category-block-empty-icon"><i data-lucide="blocks"></i></div>
+              <b>Start building your page</b>
+              <span>Add a heading, paragraph, list, checklist, highlight, or another block.</span>
+            </div>
+
+            <div class="category-block-add-wrap">
+              <button id="addCategoryBlockBtn" class="category-block-add" type="button">
+                <i data-lucide="plus"></i>
+                <span>Add block</span>
+              </button>
+
+              <div id="categoryBlockMenu" class="category-block-menu hidden">
+                <button type="button" data-block-type="paragraph"><i data-lucide="pilcrow"></i><span><b>Text</b><small>Plain paragraph</small></span></button>
+                <button type="button" data-block-type="heading1"><i data-lucide="heading-1"></i><span><b>Heading 1</b><small>Large section title</small></span></button>
+                <button type="button" data-block-type="heading2"><i data-lucide="heading-2"></i><span><b>Heading 2</b><small>Medium heading</small></span></button>
+                <button type="button" data-block-type="heading3"><i data-lucide="heading-3"></i><span><b>Heading 3</b><small>Small heading</small></span></button>
+                <button type="button" data-block-type="bullet"><i data-lucide="list"></i><span><b>Bullet</b><small>Bullet point</small></span></button>
+                <button type="button" data-block-type="numbered"><i data-lucide="list-ordered"></i><span><b>Numbered</b><small>Numbered point</small></span></button>
+                <button type="button" data-block-type="checklist"><i data-lucide="list-checks"></i><span><b>Checklist</b><small>Checkable item</small></span></button>
+                <button type="button" data-block-type="quote"><i data-lucide="quote"></i><span><b>Quote</b><small>Pull quote</small></span></button>
+                <button type="button" data-block-type="callout"><i data-lucide="highlighter"></i><span><b>Highlight</b><small>Callout box</small></span></button>
+                <button type="button" data-block-type="link"><i data-lucide="link"></i><span><b>Link</b><small>Saved web link</small></span></button>
+                <button type="button" data-block-type="code"><i data-lucide="code-2"></i><span><b>Code</b><small>Code or snippet</small></span></button>
+                <button type="button" data-block-type="divider"><i data-lucide="minus"></i><span><b>Divider</b><small>Section separator</small></span></button>
+                <button type="button" data-block-type="spacer"><i data-lucide="move-vertical"></i><span><b>Spacer</b><small>Add breathing room</small></span></button>
+              </div>
+            </div>
           </section>
 
           <section class="category-page-section category-page-files">
