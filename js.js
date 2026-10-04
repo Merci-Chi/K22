@@ -2586,6 +2586,276 @@ function applyPendingSearchJump() {
 }
 
 
+
+function downloadTextFile(filename, content, mime="text/plain") {
+  const blob=new Blob([content],{type:mime});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;
+  a.download=filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function backupDateStamp() {
+  const p=zonedParts();
+  return p.year+"-"+p.month+"-"+p.day;
+}
+
+function buildK22Backup() {
+  return {
+    app:"K22 Life Organizer",
+    version:1,
+    exported_at:new Date().toISOString(),
+    timezone:USER_TIMEZONE,
+    data:{
+      tasks:state.tasks,
+      calendar_events:state.events,
+      notes:state.notes,
+      category_items:state.categoryItems,
+      category_notes:state.categoryNotes,
+      routine_items:state.routine,
+      user_settings:state.settings ? [state.settings] : [],
+      attachment_manifest:state.attachments.map(file=>({
+        id:file.id,
+        owner_type:file.owner_type,
+        owner_id:file.owner_id,
+        owner_key:file.owner_key,
+        file_name:file.file_name,
+        mime_type:file.mime_type,
+        file_size:file.file_size,
+        storage_path:file.storage_path,
+        created_at:file.created_at
+      }))
+    }
+  };
+}
+
+function csvEscape(value) {
+  if(value===null||value===undefined)return "";
+  let text=typeof value==="object" ? JSON.stringify(value) : String(value);
+  if(/[",\n\r]/.test(text))text='"'+text.replace(/"/g,'""')+'"';
+  return text;
+}
+
+function rowsToCSV(rows) {
+  if(!rows.length)return "";
+  const headers=[...new Set(rows.flatMap(row=>Object.keys(row)))];
+  return [
+    headers.map(csvEscape).join(","),
+    ...rows.map(row=>headers.map(key=>csvEscape(row[key])).join(","))
+  ].join("\n");
+}
+
+function exportBackupJSON() {
+  const backup=buildK22Backup();
+  downloadTextFile(
+    "K22-backup-"+backupDateStamp()+".json",
+    JSON.stringify(backup,null,2),
+    "application/json"
+  );
+  toast("Backup downloaded");
+}
+
+function csvRowsFor(type) {
+  if(type==="tasks") return state.tasks.map(x=>({...x,subtasks:JSON.stringify(x.subtasks||[])}));
+  if(type==="calendar") return state.events;
+  if(type==="notes") return state.notes;
+  if(type==="routines") return state.routine.map(x=>({...x,repeat_days:JSON.stringify(x.repeat_days||[])}));
+  if(type==="categories") return state.categoryItems.map(x=>({...x,details:JSON.stringify(x.details||{})}));
+  if(type==="category-notes") return state.categoryNotes;
+  if(type==="attachments") return state.attachments.map(x=>({
+    file_name:x.file_name,owner_type:x.owner_type,owner_id:x.owner_id,owner_key:x.owner_key,
+    mime_type:x.mime_type,file_size:x.file_size,created_at:x.created_at
+  }));
+  return [];
+}
+
+function exportSelectedCSV() {
+  const select=document.getElementById("backupCsvType");
+  if(!select)return;
+  const type=select.value;
+  const rows=csvRowsFor(type);
+  if(!rows.length)return toast("Nothing to export in that section",true);
+  downloadTextFile("K22-"+type+"-"+backupDateStamp()+".csv",rowsToCSV(rows),"text/csv");
+  toast("CSV downloaded");
+}
+
+function openBackupManager() {
+  document.getElementById("profilePopover")?.remove();
+
+  let backdrop=document.getElementById("backupModalBackdrop");
+  if(!backdrop){
+    backdrop=document.createElement("div");
+    backdrop.id="backupModalBackdrop";
+    backdrop.className="event-modal-backdrop";
+    backdrop.innerHTML=`
+      <div class="event-modal backup-modal">
+        <div class="event-modal-head">
+          <div>
+            <small>K22 Data</small>
+            <h2>Backup & Export</h2>
+          </div>
+          <button class="modal-close" id="closeBackupModal" aria-label="Close"><i data-lucide="x"></i></button>
+        </div>
+
+        <div class="backup-grid">
+          <section class="backup-card">
+            <div class="backup-card-icon"><i data-lucide="database-backup"></i></div>
+            <div>
+              <h3>Full Backup</h3>
+              <p>Download your tasks, calendar, notes, categories, routines, settings, and an attachment inventory as one JSON file.</p>
+            </div>
+            <button class="save-btn" id="downloadBackupBtn"><i data-lucide="download"></i> Download JSON Backup</button>
+          </section>
+
+          <section class="backup-card">
+            <div class="backup-card-icon"><i data-lucide="table-2"></i></div>
+            <div>
+              <h3>CSV Export</h3>
+              <p>Export one section for spreadsheets or your own records.</p>
+            </div>
+            <div class="backup-inline">
+              <select id="backupCsvType">
+                <option value="tasks">Tasks</option>
+                <option value="calendar">Calendar Events</option>
+                <option value="notes">Notes</option>
+                <option value="routines">Routines</option>
+                <option value="categories">Category Items</option>
+                <option value="category-notes">Category Notes</option>
+                <option value="attachments">Attachment Inventory</option>
+              </select>
+              <button class="soft-btn" id="downloadCsvBtn"><i data-lucide="download"></i> Export CSV</button>
+            </div>
+          </section>
+
+          <section class="backup-card backup-restore-card">
+            <div class="backup-card-icon"><i data-lucide="rotate-ccw"></i></div>
+            <div>
+              <h3>Restore Backup</h3>
+              <p>Choose a K22 JSON backup. Restore merges it into this account; it does not erase other current data.</p>
+            </div>
+            <label class="backup-file-picker">
+              <input id="restoreBackupInput" type="file" accept=".json,application/json" hidden>
+              <i data-lucide="file-up"></i>
+              <span>Choose Backup File</span>
+            </label>
+            <div id="restoreBackupStatus" class="backup-status"></div>
+          </section>
+        </div>
+
+        <div class="backup-note">
+          <i data-lucide="paperclip"></i>
+          <span>Uploaded file contents are not copied into the JSON backup. The backup includes an attachment inventory; your existing uploaded files remain safely in Supabase Storage.</span>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+
+    document.getElementById("closeBackupModal")?.addEventListener("click",closeBackupManager);
+    backdrop.addEventListener("click",e=>{if(e.target===backdrop)closeBackupManager();});
+    document.getElementById("downloadBackupBtn")?.addEventListener("click",exportBackupJSON);
+    document.getElementById("downloadCsvBtn")?.addEventListener("click",exportSelectedCSV);
+    document.getElementById("restoreBackupInput")?.addEventListener("change",handleBackupRestore);
+  }else{
+    backdrop.classList.remove("hidden");
+  }
+
+  document.body.classList.add("modal-open");
+  icons();
+}
+
+function closeBackupManager() {
+  document.getElementById("backupModalBackdrop")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function cleanRestoreRows(rows, table) {
+  if(!Array.isArray(rows))return [];
+  const allowed={
+    tasks:["id","scope","text","done","position","bucket","due_date","priority","category","repeat_rule","notes","subtasks","completed_at","repeat_source_id","created_at","updated_at"],
+    calendar_events:["id","title","event_date","event_time","start_time","end_time","all_day","location","reminder_minutes","notes","created_at","updated_at"],
+    notes:["id","title","body","created_at","updated_at"],
+    category_items:["id","category","text","done","position","details","created_at","updated_at"],
+    category_notes:["id","category","notes","created_at","updated_at"],
+    routine_items:["id","label","done","position","time_of_day","repeat_days","last_done_date","active","created_at","updated_at"],
+    user_settings:["quick_focus","display_name","created_at","updated_at"]
+  }[table]||[];
+
+  return rows.map(row=>{
+    const clean={user_id:currentUser.id};
+    allowed.forEach(key=>{if(row[key]!==undefined)clean[key]=row[key];});
+    return clean;
+  });
+}
+
+async function restoreRows(table, rows, options={}) {
+  if(!rows.length)return 0;
+  const query=db.from(table).upsert(rows,options);
+  const {error}=await query;
+  if(error)throw error;
+  return rows.length;
+}
+
+async function handleBackupRestore(e) {
+  const input=e.target;
+  const file=input.files?.[0];
+  if(!file)return;
+
+  const status=document.getElementById("restoreBackupStatus");
+  try{
+    if(!navigator.onLine)throw new Error("Connect to the internet before restoring a backup.");
+    status.textContent="Reading backup...";
+
+    const parsed=JSON.parse(await file.text());
+    if(parsed?.app!=="K22 Life Organizer" || !parsed?.data){
+      throw new Error("This does not look like a valid K22 backup.");
+    }
+
+    if(!confirm("Restore this backup into your account? Existing items are kept unless the backup contains the same item ID.")){
+      input.value="";
+      status.textContent="";
+      return;
+    }
+
+    setSyncStatus("Restoring backup...");
+    status.textContent="Restoring your data...";
+
+    const d=parsed.data;
+    let restored=0;
+
+    restored+=await restoreRows("tasks",cleanRestoreRows(d.tasks,"tasks"));
+    restored+=await restoreRows("calendar_events",cleanRestoreRows(d.calendar_events,"calendar_events"));
+    restored+=await restoreRows("notes",cleanRestoreRows(d.notes,"notes"));
+    restored+=await restoreRows("category_items",cleanRestoreRows(d.category_items,"category_items"));
+    restored+=await restoreRows(
+      "category_notes",
+      cleanRestoreRows(d.category_notes,"category_notes"),
+      {onConflict:"user_id,category"}
+    );
+    restored+=await restoreRows("routine_items",cleanRestoreRows(d.routine_items,"routine_items"));
+
+    const settings=cleanRestoreRows(d.user_settings,"user_settings");
+    if(settings.length){
+      const {error}=await db.from("user_settings").upsert(settings[0],{onConflict:"user_id"});
+      if(error)throw error;
+      restored++;
+    }
+
+    await loadAll();
+    status.textContent="Restore complete · "+restored+" records processed.";
+    toast("Backup restored");
+  }catch(error){
+    console.error(error);
+    status.textContent=error.message||"Restore failed.";
+    toast(error.message||"Restore failed",true);
+    setSyncStatus("Restore failed",true);
+  }finally{
+    input.value="";
+  }
+}
+
 function isStandaloneApp() {
   return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
 }
@@ -2693,9 +2963,11 @@ function bindHeaderButtons() {
         <b>Kiara</b>
         <small class="profile-email">${esc(currentUser?.email||"")}</small>
         <a href="categories.html"><i data-lucide="layout-grid"></i> Open Categories</a>
+        <button id="backupK22Btn"><i data-lucide="database-backup"></i> Backup & Export</button>
         ${isStandaloneApp() ? "" : '<button id="installK22Btn"><i data-lucide="download"></i> Install K22 App</button>'}
         <button class="signout-btn" id="signOutBtn"><i data-lucide="log-out"></i> Sign Out</button>`;
       document.body.appendChild(p);
+      document.getElementById("backupK22Btn")?.addEventListener("click",openBackupManager);
       document.getElementById("installK22Btn")?.addEventListener("click",installK22);
       document.getElementById("signOutBtn").addEventListener("click",async()=>{await db.auth.signOut();});
       icons();
@@ -2737,7 +3009,7 @@ async function handleSession(session) {
 }
 
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();closeTaskModal();document.getElementById("profilePopover")?.remove();}
+  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();closeTaskModal();closeBackupManager();document.getElementById("profilePopover")?.remove();}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"&&document.getElementById("saveNoteBtn")){
     e.preventDefault();document.getElementById("saveNoteBtn").click();
   }
