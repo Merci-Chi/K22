@@ -1920,6 +1920,8 @@ const CATEGORY_BLOCK_TYPES = {
   checklist:{label:"Checklist",icon:"list-checks",placeholder:"To-do item"},
   quote:{label:"Quote",icon:"quote",placeholder:"Quote or important thought"},
   callout:{label:"Highlight",icon:"highlighter",placeholder:"Highlight something important"},
+  section:{label:"Section",icon:"panel-top",placeholder:"Section title"},
+  columns:{label:"Columns",icon:"columns-2"},
   image:{label:"Image",icon:"image"},
   gallery:{label:"Gallery",icon:"gallery-horizontal"},
   file:{label:"File Card",icon:"file"},
@@ -2167,7 +2169,9 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
     ? {text:"",checked:false}
     : type==="link"
       ? {text:"",url:""}
-      : {text:""};
+      : type==="columns"
+        ? {text:"",left:"",right:""}
+        : {text:""};
 
   const local={
     id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,type,
@@ -2441,7 +2445,168 @@ function mediaBlockField(block,content) {
   return wrap;
 }
 
+
+function sectionBlockField(block,content){
+  const wrap=document.createElement("div");
+  const collapsed=!!block.settings?.collapsed;
+  const style=block.settings?.style||"plain";
+  wrap.className="category-section-block style-"+style+(collapsed?" collapsed":"");
+
+  wrap.innerHTML=`
+    <div class="category-section-block-head">
+      <button type="button" class="category-section-collapse" aria-label="${collapsed?"Expand":"Collapse"} section">
+        <i data-lucide="${collapsed?"chevron-right":"chevron-down"}"></i>
+      </button>
+      <input class="category-section-title-input" type="text" placeholder="Section title" value="${esc(content.text||"")}">
+      <div class="category-section-style">
+        <button type="button" data-section-style="plain" class="${style==="plain"?"active":""}">Plain</button>
+        <button type="button" data-section-style="card" class="${style==="card"?"active":""}">Card</button>
+      </div>
+    </div>
+    <div class="category-section-hint">${collapsed?"Section collapsed":"Blocks below belong to this section until the next section."}</div>
+  `;
+
+  let timer;
+  const title=wrap.querySelector(".category-section-title-input");
+  title.addEventListener("input",()=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      content={...content,text:title.value};
+      updateCategoryBlock(block,{content});
+      renderCategoryOutline();
+    },350);
+  });
+
+  wrap.querySelector(".category-section-collapse").addEventListener("click",async()=>{
+    block.settings={...(block.settings||{}),collapsed:!collapsed};
+    await updateCategoryBlock(block,{settings:block.settings});
+    renderCategoryBlocks();
+  });
+
+  wrap.querySelectorAll("[data-section-style]").forEach(btn=>btn.addEventListener("click",async()=>{
+    block.settings={...(block.settings||{}),style:btn.dataset.sectionStyle};
+    await updateCategoryBlock(block,{settings:block.settings});
+    renderCategoryBlocks();
+  }));
+
+  return wrap;
+}
+
+function columnsBlockField(block,content){
+  const wrap=document.createElement("div");
+  wrap.className="category-columns-block";
+
+  const left=content.left||"";
+  const right=content.right||"";
+
+  wrap.innerHTML=`
+    <div class="category-column-panel">
+      <div class="category-column-label">Left column</div>
+      <div class="category-column-editor" contenteditable="true" data-column="left" data-placeholder="Write in the left column..."></div>
+    </div>
+    <div class="category-column-panel">
+      <div class="category-column-label">Right column</div>
+      <div class="category-column-editor" contenteditable="true" data-column="right" data-placeholder="Write in the right column..."></div>
+    </div>
+  `;
+
+  wrap.querySelector('[data-column="left"]').innerHTML=sanitizeRichBlockHtml(left);
+  wrap.querySelector('[data-column="right"]').innerHTML=sanitizeRichBlockHtml(right);
+
+  let timer;
+  wrap.querySelectorAll(".category-column-editor").forEach(field=>{
+    field.addEventListener("paste",e=>{
+      e.preventDefault();
+      document.execCommand("insertText",false,e.clipboardData?.getData("text/plain")||"");
+    });
+    field.addEventListener("input",()=>{
+      clearTimeout(timer);
+      timer=setTimeout(()=>{
+        content={
+          ...content,
+          left:sanitizeRichBlockHtml(wrap.querySelector('[data-column="left"]').innerHTML),
+          right:sanitizeRichBlockHtml(wrap.querySelector('[data-column="right"]').innerHTML),
+          text:[
+            wrap.querySelector('[data-column="left"]').innerText,
+            wrap.querySelector('[data-column="right"]').innerText
+          ].filter(Boolean).join(" ")
+        };
+        updateCategoryBlock(block,{content});
+      },350);
+    });
+  });
+
+  return wrap;
+}
+
+function sectionForPosition(rows,index){
+  for(let i=index-1;i>=0;i--){
+    if(rows[i].type==="section")return rows[i];
+  }
+  return null;
+}
+
+function isBlockHiddenByCollapsedSection(rows,index){
+  const section=sectionForPosition(rows,index);
+  if(!section)return false;
+  const sectionIndex=rows.findIndex(x=>x.id===section.id);
+  for(let i=sectionIndex+1;i<index;i++){
+    if(rows[i].type==="section")return false;
+  }
+  return !!section.settings?.collapsed;
+}
+
+function renderCategoryOutline(){
+  const holder=document.getElementById("categoryOutlineItems");
+  if(!holder||!activeCategory)return;
+  holder.innerHTML="";
+
+  const rows=blocksForActiveCategory();
+  const outlineRows=rows.filter(block=>["section","heading1","heading2","heading3"].includes(block.type));
+
+  if(!outlineRows.length){
+    holder.innerHTML='<div class="category-outline-empty">Add a section or heading to build your outline.</div>';
+    return;
+  }
+
+  outlineRows.forEach(block=>{
+    const content=normalizeBlockContent(block);
+    const button=document.createElement("button");
+    button.type="button";
+    button.className="category-outline-item outline-"+block.type;
+    button.innerHTML='<i data-lucide="'+(CATEGORY_BLOCK_TYPES[block.type]?.icon||"heading")+'"></i><span>'+esc(content.text||CATEGORY_BLOCK_TYPES[block.type]?.label||"Untitled")+'</span>';
+    button.addEventListener("click",()=>{
+      document.querySelector('[data-block-id="'+block.id+'"]')?.scrollIntoView({behavior:"smooth",block:"center"});
+      if(window.matchMedia("(max-width: 650px)").matches)document.getElementById("categoryOutline")?.classList.add("hidden");
+    });
+    holder.appendChild(button);
+  });
+  icons();
+}
+
+function bindCategoryOutline(){
+  const outline=document.getElementById("categoryOutline");
+  const toggle=document.getElementById("toggleCategoryOutline");
+  const close=document.getElementById("closeCategoryOutline");
+  if(!outline||!toggle)return;
+
+  if(!toggle.dataset.bound){
+    toggle.dataset.bound="1";
+    toggle.addEventListener("click",()=>{
+      outline.classList.toggle("hidden");
+      if(!outline.classList.contains("hidden"))renderCategoryOutline();
+    });
+  }
+  if(close&&!close.dataset.bound){
+    close.dataset.bound="1";
+    close.addEventListener("click",()=>outline.classList.add("hidden"));
+  }
+}
+
 function categoryBlockField(block, content) {
+  if(block.type==="section")return sectionBlockField(block,content);
+  if(block.type==="columns")return columnsBlockField(block,content);
+
   if(["image","gallery","file"].includes(block.type)){
     return mediaBlockField(block,content);
   }
@@ -2737,10 +2902,14 @@ function renderCategoryBlocks() {
   if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
 
   rows.forEach((block,index)=>{
+    const hiddenBySection=isBlockHiddenByCollapsedSection(rows,index);
+    if(hiddenBySection)return;
     const type=CATEGORY_BLOCK_TYPES[block.type]||CATEGORY_BLOCK_TYPES.paragraph;
     const content=normalizeBlockContent(block);
     const row=document.createElement("div");
-    row.className="category-block category-block-"+block.type+(content.checked?" checked":"");
+    const parentSection=block.type==="section"?null:sectionForPosition(rows,index);
+    const sectionStyle=parentSection?.settings?.style||"plain";
+    row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(parentSection?" in-section section-style-"+sectionStyle:"");
     row.dataset.blockId=block.id;
     row.draggable=true;
 
@@ -2813,6 +2982,8 @@ function renderCategoryBlocks() {
   });
 
   bindCategoryBlockMenu();
+  bindCategoryOutline();
+  renderCategoryOutline();
   icons();
 }
 
