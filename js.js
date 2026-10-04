@@ -2882,7 +2882,9 @@ function renderUniversalSearch(input) {
         panel.classList.add("hidden");
         input.value="";
       }else{
-        location.href=result.page;
+        location.href=(result.page==="category.html"&&result.category)
+          ? categoryPageUrl(result.category)
+          : result.page;
       }
     });
   });
