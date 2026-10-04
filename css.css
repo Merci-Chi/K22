@@ -803,3 +803,107 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   .backup-restore-card{grid-column:auto}
   .backup-inline{grid-template-columns:1fr}
 }
+
+
+/* Account security */
+.auth-brand-icon{
+  width:48px;height:48px;border-radius:15px;background:#eee7df;
+  display:grid;place-items:center;margin-bottom:12px
+}
+.auth-brand-icon svg{width:22px;height:22px}
+.password-field{position:relative}
+.password-field input{width:100%;padding-right:46px}
+.password-toggle{
+  position:absolute;right:5px;top:50%;transform:translateY(-50%);
+  border:0;background:transparent;width:36px;height:36px;border-radius:9px;
+  display:grid;place-items:center;color:#777
+}
+.password-toggle svg{width:17px;height:17px}
+.password-rules{
+  margin-top:-3px;padding:7px 9px;border-radius:10px;background:#f4f0eb;
+  color:#777;font-size:10px;line-height:1.35
+}
+.remember-email-row{
+  flex-direction:row!important;align-items:center;gap:8px!important;
+  font-weight:500!important;color:#666!important
+}
+.remember-email-row input{width:17px!important;height:17px!important}
+.auth-link-btn{
+  border:0;background:transparent;color:#666;text-decoration:underline;
+  font-size:11px;padding:3px 0
+}
+.account-security-modal{width:min(840px,96vw)}
+.security-sections{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.security-card{
+  border:1px solid rgba(0,0,0,.065);background:#faf7f3;
+  border-radius:17px;padding:14px;display:flex;flex-direction:column;gap:11px
+}
+.security-card-head{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:start;gap:10px
+}
+.security-icon{
+  width:38px;height:38px;border-radius:11px;background:#eee7df;
+  display:grid;place-items:center
+}
+.security-icon svg{width:17px;height:17px}
+.security-card h3{margin:0;font-family:Georgia,serif;font-size:17px}
+.security-card p{margin:3px 0 0;color:#777;font-size:10.5px;line-height:1.4}
+.security-badge{
+  border-radius:999px;padding:4px 7px;background:#eee9e4;color:#777;
+  font-size:9px;font-weight:700;white-space:nowrap
+}
+.security-badge.verified{background:#e6f1e2;color:#567a50}
+.security-badge.warning{background:#f8e8d5;color:#8d672d}
+.security-action{align-self:flex-start}
+.security-password-form,.security-lock-controls{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px
+}
+.security-password-form input,.security-lock-controls input{
+  min-width:0;border:1px solid rgba(0,0,0,.09);background:#fff;
+  border-radius:11px;padding:9px 10px;outline:0
+}
+.security-password-form button:last-child{grid-column:1/-1}
+.security-lock-controls{grid-template-columns:minmax(0,1fr) repeat(3,auto)}
+.security-inline-status{min-height:14px;color:#777;font-size:10px}
+.security-session-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px
+}
+.security-session-grid span{
+  background:#fff;border-radius:11px;padding:9px;display:flex;flex-direction:column
+}
+.security-session-grid small{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.05em}
+.security-session-grid b{margin-top:3px;font-size:10.5px;font-weight:600;color:#555}
+.app-lock-gate{
+  position:fixed;inset:0;z-index:10000;display:grid;place-items:center;
+  padding:24px;background:linear-gradient(135deg,#24211f,#39332e)
+}
+.app-lock-card{
+  width:min(390px,100%);background:#fffdfb;border-radius:24px;padding:24px;
+  text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.35)
+}
+.app-lock-icon{
+  width:56px;height:56px;border-radius:17px;background:#eee7df;
+  display:grid;place-items:center;margin:0 auto 12px
+}
+.app-lock-icon svg{width:24px;height:24px}
+.app-lock-card h2{margin:0;font-family:Georgia,serif;font-size:27px}
+.app-lock-card p{margin:7px 0 16px;color:#777;font-size:11px}
+.app-lock-card form{display:grid;grid-template-columns:1fr auto;gap:8px}
+.app-lock-card input{
+  border:1px solid rgba(0,0,0,.12);border-radius:12px;padding:11px;
+  text-align:center;letter-spacing:.18em;font-size:16px;outline:0
+}
+.app-lock-card form button{
+  border:0;background:#292623;color:#fff;border-radius:12px;padding:0 15px;font-weight:700
+}
+.app-lock-message{min-height:18px;margin-top:9px;color:#a24646;font-size:11px}
+.app-lock-signout{
+  margin-top:7px;border:0;background:transparent;color:#777;text-decoration:underline;font-size:10.5px
+}
+@media(max-width:700px){
+  .security-sections{grid-template-columns:1fr}
+  .security-password-form,.security-lock-controls{grid-template-columns:1fr}
+  .security-password-form button:last-child{grid-column:auto}
+  .security-session-grid{grid-template-columns:1fr}
+}
