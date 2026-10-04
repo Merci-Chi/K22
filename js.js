@@ -340,6 +340,7 @@ function renderEverything() {
   renderTaskSection("todayPageTasks","todayTaskForm","todayTaskInput","todayClearDone","today");
   renderCalendar();
   renderAgenda();
+  bindEventModal();
   renderHomeCalendar();
   renderHomeEvents();
   renderRoutine();
@@ -475,7 +476,7 @@ function renderCalendar() {
     btn.className = "day-cell" + (muted ? " muted-day" : "") + (ds === selectedDate ? " selected-day" : "");
     btn.innerHTML = `<span>${d}</span>` + onDate(ds).slice(0,2).map(e => `<em class="event-pill">${esc(e.title)}</em>`).join("");
     btn.addEventListener("click", () => { selectedDate = ds; renderCalendar(); });
-    btn.addEventListener("dblclick", () => addEvent(ds));
+    btn.addEventListener("dblclick", () => openEventModal(null, ds));
     grid.appendChild(btn);
   }
 
@@ -495,49 +496,209 @@ function renderCalendar() {
   const add = document.getElementById("addEventBtn");
   if (add && !add.dataset.bound) {
     add.dataset.bound = "1";
-    add.addEventListener("click", () => addEvent(selectedDate));
+    add.addEventListener("click", () => openEventModal(null, selectedDate));
   }
 }
 
-async function addEvent(date) {
-  const title = prompt("Event name:");
-  if (!title) return;
-  const timeInput = prompt("Time (optional):", "3:00 PM") || "";
-  const event_time = normalizeTime(timeInput);
-  const { data, error } = await db.from("calendar_events").insert({
-    user_id: currentUser.id,
-    title: title.trim(),
-    event_date: date || todayISO(),
-    event_time
-  }).select().single();
-  if (error) return toast(error.message, true);
-  state.events.push(data);
-  renderCalendar(); renderAgenda(); renderHomeEvents();
-  toast("Event added");
+let editingEventId = null;
+
+function toTimeInput(value) {
+  if (!value) return "";
+  return String(value).slice(0,5);
+}
+
+function eventStart(ev) {
+  return ev.start_time || ev.event_time || null;
+}
+
+function eventTimeLabel(ev) {
+  if (ev.all_day) return "All day";
+  const start = eventStart(ev);
+  const end = ev.end_time;
+  if (!start) return "";
+  return end ? `${displayTime(start)} – ${displayTime(end)}` : displayTime(start);
+}
+
+function reminderLabel(minutes) {
+  if (minutes === null || minutes === undefined || minutes === "") return "";
+  const n = Number(minutes);
+  if (n === 0) return "At event time";
+  if (n < 60) return `${n} min before`;
+  if (n === 60) return "1 hour before";
+  if (n === 1440) return "1 day before";
+  return `${n} min before`;
+}
+
+function openEventModal(event = null, date = selectedDate) {
+  const backdrop = document.getElementById("eventModalBackdrop");
+  if (!backdrop) return;
+
+  editingEventId = event?.id || null;
+  document.getElementById("eventModalTitle").textContent = event ? "Edit Event" : "Add Event";
+  document.getElementById("eventModalEyebrow").textContent = event ? "Calendar Event" : "New Calendar Event";
+  document.getElementById("eventId").value = event?.id || "";
+  document.getElementById("eventTitleInput").value = event?.title || "";
+  document.getElementById("eventDateInput").value = event?.event_date || date || todayISO();
+  document.getElementById("eventAllDayInput").checked = !!event?.all_day;
+  document.getElementById("eventStartTimeInput").value = toTimeInput(eventStart(event || {}));
+  document.getElementById("eventEndTimeInput").value = toTimeInput(event?.end_time);
+  document.getElementById("eventLocationInput").value = event?.location || "";
+  document.getElementById("eventReminderInput").value =
+    event?.reminder_minutes === null || event?.reminder_minutes === undefined ? "" : String(event.reminder_minutes);
+  document.getElementById("eventNotesInput").value = event?.notes || "";
+  document.getElementById("deleteEventBtn").classList.toggle("hidden", !event);
+
+  updateAllDayFields();
+  backdrop.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+  setTimeout(() => document.getElementById("eventTitleInput")?.focus(), 50);
+  icons();
+}
+
+function closeEventModal() {
+  document.getElementById("eventModalBackdrop")?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+  editingEventId = null;
+}
+
+function updateAllDayFields() {
+  const allDay = document.getElementById("eventAllDayInput")?.checked;
+  document.querySelectorAll(".event-time-field").forEach(el => el.classList.toggle("disabled-field", !!allDay));
+  const start = document.getElementById("eventStartTimeInput");
+  const end = document.getElementById("eventEndTimeInput");
+  if (start) start.disabled = !!allDay;
+  if (end) end.disabled = !!allDay;
+}
+
+function bindEventModal() {
+  const form = document.getElementById("eventForm");
+  if (!form || form.dataset.bound) return;
+  form.dataset.bound = "1";
+
+  document.getElementById("closeEventModal")?.addEventListener("click", closeEventModal);
+  document.getElementById("cancelEventBtn")?.addEventListener("click", closeEventModal);
+  document.getElementById("eventModalBackdrop")?.addEventListener("click", e => {
+    if (e.target.id === "eventModalBackdrop") closeEventModal();
+  });
+  document.getElementById("eventAllDayInput")?.addEventListener("change", updateAllDayFields);
+
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const allDay = document.getElementById("eventAllDayInput").checked;
+    const title = document.getElementById("eventTitleInput").value.trim();
+    const event_date = document.getElementById("eventDateInput").value;
+    const start_time = allDay ? null : normalizeTime(document.getElementById("eventStartTimeInput").value);
+    const end_time = allDay ? null : normalizeTime(document.getElementById("eventEndTimeInput").value);
+    const location = document.getElementById("eventLocationInput").value.trim() || null;
+    const reminderRaw = document.getElementById("eventReminderInput").value;
+    const reminder_minutes = reminderRaw === "" ? null : Number(reminderRaw);
+    const notes = document.getElementById("eventNotesInput").value.trim() || null;
+
+    if (!title || !event_date) return;
+
+    if (start_time && end_time && end_time <= start_time) {
+      return toast("End time must be after start time", true);
+    }
+
+    const payload = {
+      user_id: currentUser.id,
+      title,
+      event_date,
+      event_time: start_time,
+      start_time,
+      end_time,
+      all_day: allDay,
+      location,
+      reminder_minutes,
+      notes
+    };
+
+    const saveBtn = document.getElementById("saveEventBtn");
+    saveBtn.disabled = true;
+    saveBtn.textContent = editingEventId ? "Saving..." : "Adding...";
+
+    let result;
+    if (editingEventId) {
+      result = await db.from("calendar_events").update(payload).eq("id", editingEventId).select().single();
+    } else {
+      result = await db.from("calendar_events").insert(payload).select().single();
+    }
+
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Event";
+
+    if (result.error) return toast(result.error.message, true);
+
+    if (editingEventId) {
+      const idx = state.events.findIndex(x => x.id === editingEventId);
+      if (idx >= 0) state.events[idx] = result.data;
+      toast("Event updated");
+    } else {
+      state.events.push(result.data);
+      toast("Event added");
+    }
+
+    selectedDate = result.data.event_date;
+    closeEventModal();
+    renderCalendar();
+    renderAgenda();
+    renderHomeEvents();
+  });
+
+  document.getElementById("deleteEventBtn")?.addEventListener("click", async () => {
+    if (!editingEventId) return;
+    if (!confirm("Delete this event?")) return;
+
+    const { error } = await db.from("calendar_events").delete().eq("id", editingEventId);
+    if (error) return toast(error.message, true);
+
+    state.events = state.events.filter(x => x.id !== editingEventId);
+    closeEventModal();
+    renderCalendar();
+    renderAgenda();
+    renderHomeEvents();
+    toast("Event deleted");
+  });
 }
 
 function renderAgenda() {
   const list = document.getElementById("eventsList");
   if (!list) return;
+  bindEventModal();
   list.innerHTML = "";
-  const sorted = [...state.events].sort((a,b) => (a.event_date+(a.event_time||"")).localeCompare(b.event_date+(b.event_time||"")));
+
+  const sorted = [...state.events].sort((a,b) => {
+    const aKey = a.event_date + (eventStart(a) || "");
+    const bKey = b.event_date + (eventStart(b) || "");
+    return aKey.localeCompare(bKey);
+  });
+
   if (!sorted.length) {
     list.innerHTML = '<div class="empty-inline">No events yet.</div>';
     return;
   }
+
   sorted.forEach(ev => {
-    const item = document.createElement("div");
-    item.className = "agenda-item blue";
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "agenda-item blue agenda-event-button";
+    const meta = [
+      ev.event_date,
+      eventTimeLabel(ev),
+      ev.location ? `📍 ${ev.location}` : "",
+      reminderLabel(ev.reminder_minutes)
+    ].filter(Boolean).join(" · ");
+
     item.innerHTML = `
       <span class="agenda-dot"></span>
-      <div class="agenda-copy"><b>${esc(ev.title)}</b><small>${esc(ev.event_date)}${ev.event_time ? " · "+esc(displayTime(ev.event_time)) : ""}</small></div>
-      <button class="agenda-delete" aria-label="Delete event"><i data-lucide="trash-2"></i></button>`;
-    item.querySelector(".agenda-delete").addEventListener("click", async () => {
-      const { error } = await db.from("calendar_events").delete().eq("id", ev.id);
-      if (error) return toast(error.message, true);
-      state.events = state.events.filter(x => x.id !== ev.id);
-      renderAgenda(); renderCalendar(); renderHomeEvents();
-    });
+      <div class="agenda-copy">
+        <b>${esc(ev.title)}</b>
+        <small>${esc(meta)}</small>
+        ${ev.notes ? `<span class="agenda-notes">${esc(ev.notes)}</span>` : ""}
+      </div>
+      <i data-lucide="chevron-right" class="agenda-chevron"></i>`;
+
+    item.addEventListener("click", () => openEventModal(ev, ev.event_date));
     list.appendChild(item);
   });
   icons();
@@ -883,7 +1044,7 @@ async function handleSession(session) {
 }
 
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeCategory();document.getElementById("profilePopover")?.remove();}
+  if(e.key==="Escape"){closeCategory();closeEventModal();document.getElementById("profilePopover")?.remove();}
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"&&document.getElementById("saveNoteBtn")){
     e.preventDefault();document.getElementById("saveNoteBtn").click();
   }
