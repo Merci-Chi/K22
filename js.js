@@ -8,12 +8,14 @@ let currentUser = null;
 let realtimeChannel = null;
 let deferredInstallPrompt = null;
 let swRegistration = null;
+let categoryBlocksAvailable = true;
 let state = {
   tasks: [],
   events: [],
   notes: [],
   categoryItems: [],
   categoryNotes: [],
+  categoryBlocks: [],
   routine: [],
   attachments: [],
   settings: null
@@ -255,6 +257,20 @@ async function safeOptional(queryPromise) {
   return data;
 }
 
+async function loadCategoryBlocksSafe() {
+  const { data, error } = await db.from("category_blocks")
+    .select("*")
+    .order("position")
+    .order("created_at");
+  if (error) {
+    categoryBlocksAvailable = false;
+    console.warn("Category blocks are not set up yet:", error.message);
+    return [];
+  }
+  categoryBlocksAvailable = true;
+  return data || [];
+}
+
 const OFFLINE_QUEUE_KEY = "k22OfflineQueue";
 const OFFLINE_CACHE_PREFIX = "k22OfflineState:";
 
@@ -386,12 +402,13 @@ async function loadAll() {
   if (!currentUser) return;
   setSyncStatus("Syncing...");
   try {
-    const [tasks, events, notes, categoryItems, categoryNotes, routine, attachments, settingsRows] = await Promise.all([
+    const [tasks, events, notes, categoryItems, categoryNotes, categoryBlocks, routine, attachments, settingsRows] = await Promise.all([
       safe(db.from("tasks").select("*").order("position").order("created_at")),
       safe(db.from("calendar_events").select("*").order("event_date").order("event_time")),
       safe(db.from("notes").select("*").order("updated_at", { ascending: false })),
       safe(db.from("category_items").select("*").order("position").order("created_at")),
       safe(db.from("category_notes").select("*")),
+      loadCategoryBlocksSafe(),
       safe(db.from("routine_items").select("*").order("position")),
       safeOptional(db.from("attachments").select("*").order("created_at", { ascending: false })),
       safe(db.from("user_settings").select("*").limit(1))
@@ -402,6 +419,7 @@ async function loadAll() {
     state.notes = notes || [];
     state.categoryItems = categoryItems || [];
     state.categoryNotes = categoryNotes || [];
+    state.categoryBlocks = categoryBlocks || [];
     state.routine = routine || [];
     state.attachments = attachments || [];
     state.settings = settingsRows?.[0] || null;
@@ -546,6 +564,7 @@ function renderEverything() {
   renderFocus();
   renderNotesPage();
   setupCategoryPage();
+  renderCategoryBlocks();
   bindAttachmentInputs();
   renderNoteAttachments();
   bindCategoryCards();
@@ -1877,6 +1896,7 @@ function updateCategoryDocumentMeta() {
 
   const timestamps=[
     ...state.categoryItems.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
+    ...(state.categoryBlocks||[]).filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
     ...state.categoryNotes.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
     ...state.attachments.filter(x=>x.owner_type==="category"&&x.owner_key===activeCategory).map(x=>x.created_at)
   ].filter(Boolean).sort().reverse();
@@ -1887,6 +1907,333 @@ function updateCategoryDocumentMeta() {
       : "New page";
   }
   icons();
+}
+
+
+const CATEGORY_BLOCK_TYPES = {
+  paragraph:{label:"Text",icon:"pilcrow",placeholder:"Write something..."},
+  heading1:{label:"Heading 1",icon:"heading-1",placeholder:"Big heading"},
+  heading2:{label:"Heading 2",icon:"heading-2",placeholder:"Section heading"},
+  heading3:{label:"Heading 3",icon:"heading-3",placeholder:"Small heading"},
+  bullet:{label:"Bullet",icon:"list",placeholder:"List item"},
+  numbered:{label:"Numbered",icon:"list-ordered",placeholder:"List item"},
+  checklist:{label:"Checklist",icon:"list-checks",placeholder:"To-do item"},
+  quote:{label:"Quote",icon:"quote",placeholder:"Quote or important thought"},
+  callout:{label:"Highlight",icon:"highlighter",placeholder:"Highlight something important"},
+  link:{label:"Link",icon:"link",placeholder:"Link title"},
+  code:{label:"Code",icon:"code-2",placeholder:"Paste code or a snippet..."},
+  divider:{label:"Divider",icon:"minus"},
+  spacer:{label:"Spacer",icon:"move-vertical"}
+};
+
+function blocksForActiveCategory() {
+  return (state.categoryBlocks || [])
+    .filter(block=>block.category===activeCategory)
+    .sort((a,b)=>(a.position||0)-(b.position||0));
+}
+
+function normalizeBlockContent(block) {
+  const content=block?.content;
+  if(content && typeof content==="object" && !Array.isArray(content))return content;
+  if(typeof content==="string")return {text:content};
+  return {};
+}
+
+async function migrateCategoryLegacyToBlocks(category) {
+  if(!categoryBlocksAvailable || !navigator.onLine || !currentUser)return;
+  const existing=(state.categoryBlocks||[]).filter(x=>x.category===category);
+  if(existing.length)return;
+
+  const marker="k22LegacyBlocks:"+currentUser.id+":"+category;
+  if(localStorage.getItem(marker))return;
+
+  const rows=[];
+  let position=0;
+  const oldNotes=state.categoryNotes.find(x=>x.category===category)?.notes?.trim();
+  if(oldNotes){
+    rows.push({
+      id:crypto.randomUUID(),user_id:currentUser.id,category,type:"paragraph",
+      content:{text:oldNotes},settings:{legacy_source:"category_notes"},position:position++
+    });
+  }
+
+  state.categoryItems.filter(x=>x.category===category).forEach(item=>{
+    rows.push({
+      id:crypto.randomUUID(),user_id:currentUser.id,category,type:"checklist",
+      content:{text:item.text,checked:!!item.done},
+      settings:{legacy_source:"category_items",legacy_item_id:item.id,details:item.details||{}},
+      position:position++
+    });
+  });
+
+  if(!rows.length){
+    localStorage.setItem(marker,"1");
+    return;
+  }
+
+  const {data,error}=await db.from("category_blocks").insert(rows).select();
+  if(error){
+    console.warn("Legacy category import skipped:",error);
+    return;
+  }
+
+  state.categoryBlocks.push(...(data||rows));
+  localStorage.setItem(marker,"1");
+  saveOfflineCache();
+}
+
+function autoSizeBlockField(field) {
+  if(!field || field.tagName!=="TEXTAREA")return;
+  field.style.height="auto";
+  field.style.height=Math.max(field.scrollHeight,36)+"px";
+}
+
+async function createCategoryBlock(type="paragraph", afterId=null) {
+  if(!categoryBlocksAvailable){
+    toast("Run the Batch 2 category_blocks SQL first",true);
+    return;
+  }
+  if(!activeCategory || !CATEGORY_BLOCK_TYPES[type])return;
+
+  const rows=blocksForActiveCategory();
+  let position=rows.length;
+  if(afterId){
+    const index=rows.findIndex(x=>x.id===afterId);
+    if(index>=0)position=index+1;
+  }
+
+  // Keep positions stable when inserting in the middle.
+  const later=rows.filter(x=>(x.position||0)>=position);
+  for(const row of later){
+    row.position=(row.position||0)+1;
+    commitMutation({
+      table:"category_blocks",action:"update",
+      payload:{position:row.position},match:{id:row.id}
+    },[row]);
+  }
+
+  const content=type==="checklist"
+    ? {text:"",checked:false}
+    : type==="link"
+      ? {text:"",url:""}
+      : {text:""};
+
+  const local={
+    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,type,
+    content,settings:{},position,
+    created_at:new Date().toISOString(),updated_at:new Date().toISOString()
+  };
+
+  state.categoryBlocks.push(local);
+  saveOfflineCache();
+  const result=await commitMutation({
+    table:"category_blocks",action:"insert",payload:local
+  },[local]);
+
+  if(result.error){
+    state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==local.id);
+    saveOfflineCache();
+    return toast(result.error.message,true);
+  }
+  if(result.data?.[0])Object.assign(local,result.data[0]);
+
+  renderCategoryBlocks();
+  updateCategoryDocumentMeta();
+  setTimeout(()=>document.querySelector('[data-block-id="'+local.id+'"] .category-block-input')?.focus(),40);
+}
+
+async function updateCategoryBlock(block, patch) {
+  Object.assign(block,patch,{updated_at:new Date().toISOString()});
+  saveOfflineCache();
+  const payload={};
+  if(patch.content!==undefined)payload.content=patch.content;
+  if(patch.settings!==undefined)payload.settings=patch.settings;
+  if(patch.type!==undefined)payload.type=patch.type;
+  if(patch.position!==undefined)payload.position=patch.position;
+
+  const result=await commitMutation({
+    table:"category_blocks",action:"update",payload,match:{id:block.id}
+  },[block]);
+  if(result.error)toast(result.error.message,true);
+  updateCategoryDocumentMeta();
+}
+
+async function deleteCategoryBlock(block) {
+  state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==block.id);
+  saveOfflineCache();
+  renderCategoryBlocks();
+
+  const result=await commitMutation({
+    table:"category_blocks",action:"delete",match:{id:block.id}
+  });
+  if(result.error)return toast(result.error.message,true);
+  updateCategoryDocumentMeta();
+}
+
+function categoryNumberForBlock(block) {
+  return blocksForActiveCategory()
+    .filter(x=>x.type==="numbered" && (x.position||0)<=(block.position||0))
+    .length;
+}
+
+function categoryBlockField(block, content) {
+  if(block.type==="divider"){
+    const divider=document.createElement("div");
+    divider.className="category-block-divider";
+    divider.innerHTML="<hr>";
+    return divider;
+  }
+
+  if(block.type==="spacer"){
+    const spacer=document.createElement("div");
+    spacer.className="category-block-spacer";
+    spacer.innerHTML='<span>Spacer</span>';
+    return spacer;
+  }
+
+  const wrap=document.createElement("div");
+  wrap.className="category-block-content";
+
+  if(block.type==="checklist"){
+    const check=document.createElement("input");
+    check.type="checkbox";
+    check.className="category-block-check";
+    check.checked=!!content.checked;
+    check.addEventListener("change",()=>{
+      updateCategoryBlock(block,{content:{...content,checked:check.checked}});
+    });
+    wrap.appendChild(check);
+  }else if(block.type==="bullet"){
+    const marker=document.createElement("span");
+    marker.className="category-list-marker";
+    marker.textContent="•";
+    wrap.appendChild(marker);
+  }else if(block.type==="numbered"){
+    const marker=document.createElement("span");
+    marker.className="category-list-marker numbered";
+    marker.textContent=categoryNumberForBlock(block)+".";
+    wrap.appendChild(marker);
+  }
+
+  const field=document.createElement("textarea");
+  field.className="category-block-input";
+  field.rows=1;
+  field.value=content.text||"";
+  field.placeholder=CATEGORY_BLOCK_TYPES[block.type]?.placeholder||"Write something...";
+  field.setAttribute("aria-label",CATEGORY_BLOCK_TYPES[block.type]?.label||"Block");
+  wrap.appendChild(field);
+
+  if(block.type==="link"){
+    const url=document.createElement("input");
+    url.type="url";
+    url.className="category-block-link-url";
+    url.value=content.url||"";
+    url.placeholder="https://...";
+    wrap.appendChild(url);
+
+    let urlTimer;
+    url.addEventListener("input",()=>{
+      clearTimeout(urlTimer);
+      urlTimer=setTimeout(()=>{
+        content={...content,url:url.value.trim()};
+        updateCategoryBlock(block,{content});
+      },450);
+    });
+  }
+
+  let timer;
+  field.addEventListener("input",()=>{
+    autoSizeBlockField(field);
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      content={...content,text:field.value};
+      updateCategoryBlock(block,{content});
+    },400);
+  });
+
+  field.addEventListener("keydown",e=>{
+    if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
+      e.preventDefault();
+      createCategoryBlock("paragraph",block.id);
+    }
+  });
+
+  requestAnimationFrame(()=>autoSizeBlockField(field));
+  return wrap;
+}
+
+function renderCategoryBlocks() {
+  const canvas=document.getElementById("categoryBlockCanvas");
+  const empty=document.getElementById("categoryBlockEmpty");
+  const count=document.getElementById("categoryBlockCount");
+  if(!canvas)return;
+
+  canvas.innerHTML="";
+
+  if(!categoryBlocksAvailable){
+    empty?.classList.remove("hidden");
+    if(empty){
+      empty.innerHTML='<div class="category-block-empty-icon"><i data-lucide="database"></i></div><b>Block editor needs setup</b><span>Run the Batch 2 SQL in Supabase, then refresh K22.</span>';
+    }
+    if(count)count.textContent="Setup needed";
+    bindCategoryBlockMenu();
+    icons();
+    return;
+  }
+
+  const rows=blocksForActiveCategory();
+  empty?.classList.toggle("hidden",rows.length>0);
+  if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
+
+  rows.forEach(block=>{
+    const type=CATEGORY_BLOCK_TYPES[block.type]||CATEGORY_BLOCK_TYPES.paragraph;
+    const content=normalizeBlockContent(block);
+    const row=document.createElement("div");
+    row.className="category-block category-block-"+block.type+(content.checked?" checked":"");
+    row.dataset.blockId=block.id;
+
+    const rail=document.createElement("div");
+    rail.className="category-block-rail";
+    rail.innerHTML=
+      '<span class="category-block-type-icon" title="'+esc(type.label)+'"><i data-lucide="'+type.icon+'"></i></span>'+
+      '<button type="button" class="category-block-delete" aria-label="Delete block"><i data-lucide="trash-2"></i></button>';
+
+    const field=categoryBlockField(block,content);
+    row.appendChild(rail);
+    row.appendChild(field);
+
+    rail.querySelector(".category-block-delete").addEventListener("click",()=>{
+      if(confirm("Delete this block?"))deleteCategoryBlock(block);
+    });
+
+    canvas.appendChild(row);
+  });
+
+  bindCategoryBlockMenu();
+  icons();
+}
+
+function bindCategoryBlockMenu() {
+  const add=document.getElementById("addCategoryBlockBtn");
+  const menu=document.getElementById("categoryBlockMenu");
+  if(!add||!menu)return;
+
+  if(!add.dataset.bound){
+    add.dataset.bound="1";
+    add.addEventListener("click",()=>{
+      menu.classList.toggle("hidden");
+      icons();
+    });
+  }
+
+  menu.querySelectorAll("[data-block-type]").forEach(btn=>{
+    if(btn.dataset.bound)return;
+    btn.dataset.bound="1";
+    btn.addEventListener("click",async()=>{
+      menu.classList.add("hidden");
+      await createCategoryBlock(btn.dataset.blockType);
+    });
+  });
 }
 
 const CATEGORY_TEMPLATES = {
@@ -2035,82 +2382,15 @@ function openCategory(category, options={}) {
     history.replaceState({category},"",wantedUrl);
   }
 
-  const notes=document.getElementById("modalNotes");
-  if(notes)notes.value=state.categoryNotes.find(x=>x.category===category)?.notes||"";
-
-  resetCategoryForm();
-  renderCategoryItems();
-  renderCategoryAttachments();
   updateCategoryDocumentMeta();
+  renderCategoryAttachments();
 
-  const form=document.getElementById("categoryItemForm");
-  if(form&&!form.dataset.bound){
-    form.dataset.bound="1";
-    form.addEventListener("submit",async e=>{
-      e.preventDefault();
-      const input=document.getElementById("categoryItemInput");
-      const text=input.value.trim();
-      if(!text||!activeCategory)return;
+  migrateCategoryLegacyToBlocks(category).then(()=>{
+    renderCategoryBlocks();
+    updateCategoryDocumentMeta();
+  });
 
-      const details=collectCategoryDetails();
-
-      if(editingCategoryItemId){
-        const item=state.categoryItems.find(x=>x.id===editingCategoryItemId);
-        if(!item)return;
-        item.text=text;
-        item.details=details;
-        item.updated_at=new Date().toISOString();
-        saveOfflineCache();
-
-        const result=await commitMutation({
-          table:"category_items",action:"update",
-          payload:{text:item.text,details:item.details},
-          match:{id:item.id}
-        },[item]);
-        if(result.error)return toast(result.error.message,true);
-        if(result.data?.[0])Object.assign(item,result.data[0]);
-        toast("Item updated");
-      }else{
-        const position=state.categoryItems.filter(x=>x.category===activeCategory).length;
-        const localItem={
-          id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,
-          text,details,done:false,position,
-          created_at:new Date().toISOString(),updated_at:new Date().toISOString()
-        };
-        state.categoryItems.push(localItem);
-        saveOfflineCache();
-
-        const result=await commitMutation({
-          table:"category_items",action:"insert",payload:localItem
-        },[localItem]);
-        if(result.error){
-          state.categoryItems=state.categoryItems.filter(x=>x.id!==localItem.id);
-          saveOfflineCache();
-          return toast(result.error.message,true);
-        }
-        toast("Item added");
-      }
-
-      resetCategoryForm();
-      renderCategoryItems();
-      updateCategoryDocumentMeta();
-    });
-  }
-
-  const cancelEdit=document.getElementById("cancelCategoryEdit");
-  if(cancelEdit&&!cancelEdit.dataset.bound){
-    cancelEdit.dataset.bound="1";
-    cancelEdit.addEventListener("click",resetCategoryForm);
-  }
-
-  if(notes&&!notes.dataset.bound){
-    notes.dataset.bound="1";
-    let timer;
-    notes.addEventListener("input",()=>{
-      clearTimeout(timer);
-      timer=setTimeout(()=>saveCategoryNotes(false),500);
-    });
-  }
+  renderCategoryBlocks();
 }
 
 window.addEventListener("popstate",()=>{
@@ -2483,6 +2763,19 @@ function buildUniversalSearchResults(query) {
     }
   });
 
+  (state.categoryBlocks||[]).forEach(block=>{
+    const content=normalizeBlockContent(block);
+    const hay=[block.category,content.text,content.url].filter(Boolean).join(" ").toLowerCase();
+    if(hay.includes(q) && (content.text||content.url)){
+      results.push({
+        type:block.category,icon:CATEGORY_BLOCK_TYPES[block.type]?.icon||"blocks",
+        title:content.text||content.url,
+        detail:(CATEGORY_BLOCK_TYPES[block.type]?.label||"Block")+" · Category page",
+        page:"category.html",action:"category-block",id:block.id,category:block.category
+      });
+    }
+  });
+
   state.categoryNotes.forEach(note=>{
     const hay=[note.category,note.notes].filter(Boolean).join(" ").toLowerCase();
     if(hay.includes(q)){
@@ -2661,8 +2954,17 @@ function handleSearchJump(result) {
     if(item)openRoutineModal(item);
   }
 
-  if(result.action==="category"||result.action==="category-item"){
+  if(result.action==="category"||result.action==="category-item"||result.action==="category-block"){
     openCategory(result.category);
+    if(result.action==="category-block"&&result.id){
+      setTimeout(()=>{
+        const el=document.querySelector('[data-block-id="'+result.id+'"]');
+        el?.scrollIntoView({behavior:"smooth",block:"center"});
+        el?.classList.add("search-jump-highlight");
+        setTimeout(()=>el?.classList.remove("search-jump-highlight"),1800);
+        el?.querySelector(".category-block-input")?.focus();
+      },120);
+    }
     if(result.action==="category-item"&&result.id){
       setTimeout(()=>{
         const item=state.categoryItems.find(x=>x.id===result.id);
@@ -2990,6 +3292,7 @@ function buildK22Backup() {
       notes:state.notes,
       category_items:state.categoryItems,
       category_notes:state.categoryNotes,
+      category_blocks:state.categoryBlocks||[],
       routine_items:state.routine,
       user_settings:state.settings ? [state.settings] : [],
       attachment_manifest:state.attachments.map(file=>({
@@ -3040,6 +3343,7 @@ function csvRowsFor(type) {
   if(type==="routines") return state.routine.map(x=>({...x,repeat_days:JSON.stringify(x.repeat_days||[])}));
   if(type==="categories") return state.categoryItems.map(x=>({...x,details:JSON.stringify(x.details||{})}));
   if(type==="category-notes") return state.categoryNotes;
+  if(type==="category-blocks") return (state.categoryBlocks||[]).map(x=>({...x,content:JSON.stringify(x.content||{}),settings:JSON.stringify(x.settings||{})}));
   if(type==="attachments") return state.attachments.map(x=>({
     file_name:x.file_name,owner_type:x.owner_type,owner_id:x.owner_id,owner_key:x.owner_key,
     mime_type:x.mime_type,file_size:x.file_size,created_at:x.created_at
@@ -3099,6 +3403,7 @@ function openBackupManager() {
                 <option value="routines">Routines</option>
                 <option value="categories">Category Items</option>
                 <option value="category-notes">Category Notes</option>
+                <option value="category-blocks">Category Blocks</option>
                 <option value="attachments">Attachment Inventory</option>
               </select>
               <button class="soft-btn" id="downloadCsvBtn"><i data-lucide="download"></i> Export CSV</button>
@@ -3153,6 +3458,7 @@ function cleanRestoreRows(rows, table) {
     notes:["id","title","body","created_at","updated_at"],
     category_items:["id","category","text","done","position","details","created_at","updated_at"],
     category_notes:["id","category","notes","created_at","updated_at"],
+    category_blocks:["id","category","type","content","settings","position","created_at","updated_at"],
     routine_items:["id","label","done","position","time_of_day","repeat_days","last_done_date","active","created_at","updated_at"],
     user_settings:["quick_focus","display_name","created_at","updated_at"]
   }[table]||[];
@@ -3208,6 +3514,7 @@ async function handleBackupRestore(e) {
       cleanRestoreRows(d.category_notes,"category_notes"),
       {onConflict:"user_id,category"}
     );
+    restored+=await restoreRows("category_blocks",cleanRestoreRows(d.category_blocks,"category_blocks"));
     restored+=await restoreRows("routine_items",cleanRestoreRows(d.routine_items,"routine_items"));
 
     const settings=cleanRestoreRows(d.user_settings,"user_settings");
@@ -3359,6 +3666,7 @@ function startRealtime() {
     .on("postgres_changes",{event:"*",schema:"public",table:"notes"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"category_items"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"category_notes"},()=>loadAll())
+    .on("postgres_changes",{event:"*",schema:"public",table:"category_blocks"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"routine_items"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"attachments"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"user_settings"},()=>loadAll())
