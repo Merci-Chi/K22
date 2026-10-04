@@ -770,28 +770,42 @@ function bindEventModal() {
     saveBtn.disabled = true;
     saveBtn.textContent = editingEventId ? "Saving..." : "Adding...";
 
-    let result;
-    if (editingEventId) {
-      result = await db.from("calendar_events").update(payload).eq("id", editingEventId).select().single();
+    const wasEditing = !!editingEventId;
+    const eventId = editingEventId || crypto.randomUUID();
+    const localEvent = {
+      ...(wasEditing ? (state.events.find(x => x.id === eventId) || {}) : {}),
+      ...payload,
+      id:eventId,
+      created_at: wasEditing ? state.events.find(x => x.id === eventId)?.created_at : new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+
+    if (wasEditing) {
+      const idx = state.events.findIndex(x => x.id === eventId);
+      if (idx >= 0) state.events[idx] = localEvent;
     } else {
-      result = await db.from("calendar_events").insert(payload).select().single();
+      state.events.push(localEvent);
     }
+    saveOfflineCache();
+
+    const mutation = wasEditing
+      ? { table:"calendar_events", action:"update", payload, match:{ id:eventId } }
+      : { table:"calendar_events", action:"insert", payload:localEvent };
+
+    const result = await commitMutation(mutation, [localEvent]);
 
     saveBtn.disabled = false;
     saveBtn.textContent = "Save Event";
 
     if (result.error) return toast(result.error.message, true);
 
-    if (editingEventId) {
-      const idx = state.events.findIndex(x => x.id === editingEventId);
-      if (idx >= 0) state.events[idx] = result.data;
-      toast("Event updated");
-    } else {
-      state.events.push(result.data);
-      toast("Event added");
+    if (result.data?.[0]) {
+      const idx = state.events.findIndex(x => x.id === eventId);
+      if (idx >= 0) state.events[idx] = result.data[0];
     }
 
-    selectedDate = result.data.event_date;
+    toast(wasEditing ? "Event updated" : "Event added");
+    selectedDate = localEvent.event_date;
     closeEventModal();
     renderCalendar();
     renderAgenda();
@@ -802,10 +816,14 @@ function bindEventModal() {
     if (!editingEventId) return;
     if (!confirm("Delete this event?")) return;
 
-    const { error } = await db.from("calendar_events").delete().eq("id", editingEventId);
-    if (error) return toast(error.message, true);
+    const deletingId = editingEventId;
+    state.events = state.events.filter(x => x.id !== deletingId);
+    saveOfflineCache();
 
-    state.events = state.events.filter(x => x.id !== editingEventId);
+    const result = await commitMutation({
+      table:"calendar_events", action:"delete", match:{ id:deletingId }
+    });
+    if (result.error) return toast(result.error.message, true);
     closeEventModal();
     renderCalendar();
     renderAgenda();
@@ -894,7 +912,7 @@ function renderHomeEvents() {
   rows.forEach((e,i) => {
     const div = document.createElement("div");
     div.className = "event-strip " + (i%2 ? "lilac" : "pink");
-    div.innerHTML = `<span>${esc(e.title)}</span><b>${esc(displayTime(e.event_time))}</b>`;
+    div.innerHTML = `<span>${esc(e.title)}</span><b>${esc(eventTimeLabel(e))}</b>`;
     holder.appendChild(div);
   });
 }
