@@ -1316,3 +1316,104 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
     border-radius:18px
   }
 }
+
+
+/* Rich text category toolbar */
+.category-block-input[contenteditable="true"]{
+  min-height:36px;
+  padding:6px 4px;
+  outline:0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+}
+.category-block-input[contenteditable="true"]:empty:before{
+  content:attr(data-placeholder);
+  color:#aaa39c;
+  pointer-events:none;
+}
+.category-block-input a{
+  color:#5f7194;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+.category-block-input code{
+  font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+  font-size:.9em;
+  background:#eee9e4;
+  padding:1px 4px;
+  border-radius:5px;
+}
+.category-block-code .category-block-input code{
+  background:rgba(255,255,255,.1);
+}
+.category-rich-toolbar{
+  position:fixed;
+  z-index:80;
+  display:flex;
+  align-items:center;
+  gap:3px;
+  padding:6px;
+  border:1px solid rgba(0,0,0,.09);
+  background:#2f2b28;
+  border-radius:12px;
+  box-shadow:0 14px 45px rgba(0,0,0,.23);
+}
+.category-rich-toolbar.hidden{display:none}
+.category-rich-toolbar button{
+  width:29px;
+  height:29px;
+  border:0;
+  border-radius:8px;
+  display:grid;
+  place-items:center;
+  background:transparent;
+  color:#f7f3ef;
+  font-size:12px;
+  cursor:pointer;
+}
+.category-rich-toolbar button:hover{
+  background:rgba(255,255,255,.11)
+}
+.category-rich-toolbar button svg{
+  width:14px;
+  height:14px;
+}
+.category-rich-divider{
+  width:1px;
+  height:20px;
+  background:rgba(255,255,255,.15);
+  margin:0 2px;
+}
+.category-rich-toolbar .category-highlight-dot{
+  width:20px;
+  height:20px;
+  border-radius:999px;
+  border:2px solid rgba(255,255,255,.72);
+  box-shadow:0 0 0 1px rgba(0,0,0,.12) inset;
+}
+.category-rich-toolbar .category-highlight-dot[data-highlight="#f8e7a8"]{background:#f8e7a8}
+.category-rich-toolbar .category-highlight-dot[data-highlight="#f3d7dc"]{background:#f3d7dc}
+.category-rich-toolbar .category-highlight-dot[data-highlight="#dcebdc"]{background:#dcebdc}
+.category-rich-toolbar .category-highlight-dot[data-highlight="#dce7f2"]{background:#dce7f2}
+.category-rich-toolbar .category-highlight-dot[data-highlight="#e7def1"]{background:#e7def1}
+
+@media(max-width:650px){
+  .category-rich-toolbar.mobile{
+    left:10px!important;
+    right:10px!important;
+    top:auto!important;
+    bottom:74px;
+    width:auto;
+    overflow-x:auto;
+    justify-content:flex-start;
+    padding:7px;
+    border-radius:14px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .category-rich-toolbar.mobile button{
+    flex:0 0 31px;
+  }
+  .category-block-input[contenteditable="true"]{
+    font-size:16px;
+  }
+}
