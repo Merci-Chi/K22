@@ -3035,6 +3035,25 @@ function categoryBlockField(block, content) {
   field.addEventListener("keyup",()=>setTimeout(()=>positionRichToolbar(field),0));
 
   field.addEventListener("keydown",e=>{
+    if(e.isComposing)return;
+
+    const isListRow=["bullet","numbered","checklist"].includes(block.type);
+
+    // Craft-style list behavior:
+    // Enter creates another row of the same type directly underneath.
+    // Shift+Enter still creates a line break inside the current row.
+    if(isListRow && e.key==="Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey){
+      e.preventDefault();
+      clearTimeout(timer);
+
+      const html=sanitizeRichBlockHtml(field.innerHTML);
+      content={...content,text:blockPlainText(field),html};
+      updateCategoryBlock(block,{content});
+
+      createCategoryBlock(block.type,block.id);
+      return;
+    }
+
     if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
       e.preventDefault();
       createCategoryBlock("paragraph",block.id);
