@@ -51,9 +51,23 @@ function searchCategoryTypeMeta(type) {
   return {icon:"blocks",label:"Block"};
 }
 
+function searchPageUrl(page) {
+  const routes={
+    "home.html":"../home/home.html",
+    "calendar.html":"../calendar/calendar.html",
+    "today.html":"../today/today.html",
+    "notes.html":"../notes/notes.html",
+    "categories.html":"../categories/categories.html",
+    "category.html":"../category/category.html"
+  };
+  return new URL(routes[page]||page,location.href).href;
+}
+
 function searchCategoryPageUrl(category) {
   if(typeof categoryPageUrl==="function") return categoryPageUrl(category);
-  return "category.html?name="+encodeURIComponent(category);
+  const url=new URL("../category/category.html",location.href);
+  url.searchParams.set("name",category);
+  return url.href;
 }
 
 function buildUniversalSearchResults(query) {
@@ -223,14 +237,18 @@ function renderUniversalSearch(input) {
       const result=results[Number(btn.dataset.resultIndex)];
       if(!result)return;
       localStorage.setItem("k22SearchJump",JSON.stringify(result));
-      if(location.pathname.endsWith(result.page)||location.pathname.endsWith("/"+result.page)){
+      const target=(result.page==="category.html"&&result.category)
+        ? searchCategoryPageUrl(result.category)
+        : searchPageUrl(result.page);
+      const here=new URL(location.href);
+      const there=new URL(target,location.href);
+
+      if(here.pathname===there.pathname){
         handleSearchJump(result);
         panel.classList.add("hidden");
         input.value="";
       }else{
-        location.href=(result.page==="category.html"&&result.category)
-          ? searchCategoryPageUrl(result.category)
-          : result.page;
+        location.href=target;
       }
     });
   });
