@@ -1776,6 +1776,3 @@ async function saveCategoryNotes(notify=false) {
 }
 
 
-
-const ATTACHMENT_BUCKET = "k22-files";
-const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
