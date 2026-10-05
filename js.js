@@ -1010,6 +1010,7 @@ function buildK22Backup() {
       notes:state.notes,
       category_items:state.categoryItems,
       category_notes:state.categoryNotes,
+      category_pages:state.categoryPages||[],
       category_blocks:state.categoryBlocks||[],
       routine_items:state.routine,
       user_settings:state.settings ? [state.settings] : [],
@@ -1176,7 +1177,8 @@ function cleanRestoreRows(rows, table) {
     notes:["id","title","body","created_at","updated_at"],
     category_items:["id","category","text","done","position","details","created_at","updated_at"],
     category_notes:["id","category","notes","created_at","updated_at"],
-    category_blocks:["id","category","type","content","settings","position","created_at","updated_at"],
+    category_pages:["id","category","title","parent_id","position","created_at","updated_at"],
+    category_blocks:["id","category","page_id","type","content","settings","position","created_at","updated_at"],
     routine_items:["id","label","done","position","time_of_day","repeat_days","last_done_date","active","created_at","updated_at"],
     user_settings:["quick_focus","display_name","created_at","updated_at"]
   }[table]||[];
@@ -1232,6 +1234,7 @@ async function handleBackupRestore(e) {
       cleanRestoreRows(d.category_notes,"category_notes"),
       {onConflict:"user_id,category"}
     );
+    restored+=await restoreRows("category_pages",cleanRestoreRows(d.category_pages,"category_pages"));
     restored+=await restoreRows("category_blocks",cleanRestoreRows(d.category_blocks,"category_blocks"));
     restored+=await restoreRows("routine_items",cleanRestoreRows(d.routine_items,"routine_items"));
 
