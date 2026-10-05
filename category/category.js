@@ -2038,14 +2038,6 @@ window.addEventListener("popstate",()=>{
   }
 });
 
-function closeCategory() {
-  if(document.body.dataset.page==="category"){
-    location.href="../categories/categories.html";
-    return;
-  }
-  document.getElementById("modalBackdrop")?.classList.add("hidden");
-  document.body.classList.remove("modal-open");
-}
 
 
 
