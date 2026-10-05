@@ -1054,7 +1054,7 @@ function queueCategoryBlockSave(block,payload) {
   return task;
 }
 
-async function createCategoryBlock(type="paragraph", afterId=null, initialContent=null) {
+async function createCategoryBlock(type="paragraph", afterId=null, initialContent=null, initialSettings=null) {
   if(!categoryBlocksAvailable){
     toast("Run the Batch 2 category_blocks SQL first",true);
     return null;
@@ -1089,7 +1089,7 @@ async function createCategoryBlock(type="paragraph", afterId=null, initialConten
 
   const local={
     id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type,
-    content,settings:{},position,
+    content,settings:initialSettings?{...initialSettings}:{},position,
     created_at:new Date().toISOString(),updated_at:new Date().toISOString()
   };
 
@@ -1667,7 +1667,35 @@ function categoryRichContentAtCaret(field) {
   };
 }
 
+function textCardBlockField(block,content) {
+  const wrap=document.createElement("div");
+  wrap.className="category-text-card";
+
+  wrap.innerHTML=`
+    <input class="category-text-card-title" type="text" placeholder="Card title" value="${esc(content.title||"")}">
+    <textarea class="category-text-card-body" rows="4" placeholder="Write something...">${esc(content.text||"")}</textarea>
+  `;
+
+  let timer;
+  const save=()=>{
+    clearTimeout(timer);
+    timer=setTimeout(()=>{
+      content={
+        ...content,
+        title:wrap.querySelector(".category-text-card-title")?.value||"",
+        text:wrap.querySelector(".category-text-card-body")?.value||""
+      };
+      updateCategoryBlock(block,{content});
+    },300);
+  };
+
+  wrap.querySelector(".category-text-card-title")?.addEventListener("input",save);
+  wrap.querySelector(".category-text-card-body")?.addEventListener("input",save);
+  return wrap;
+}
+
 function categoryBlockField(block, content) {
+  if(block.type==="paragraph" && block.settings?.presentation==="card")return textCardBlockField(block,content);
   if(block.type==="section")return sectionBlockField(block,content);
   if(block.type==="columns")return columnsBlockField(block,content);
 
@@ -2252,13 +2280,36 @@ function renderCategoryBlocks() {
 function bindCategoryBlockMenu() {
   const add=document.getElementById("addCategoryBlockBtn");
   const menu=document.getElementById("categoryBlockMenu");
+  const close=document.getElementById("closeCategoryBlockMenu");
   if(!add||!menu)return;
+
+  const openMenu=()=>{
+    menu.classList.remove("hidden");
+    document.body.classList.add("category-block-picker-open");
+    icons();
+    setTimeout(()=>menu.querySelector(".category-block-picker-grid button")?.focus(),20);
+  };
+
+  const closeMenu=()=>{
+    menu.classList.add("hidden");
+    document.body.classList.remove("category-block-picker-open");
+    add.focus();
+  };
 
   if(!add.dataset.bound){
     add.dataset.bound="1";
-    add.addEventListener("click",()=>{
-      menu.classList.toggle("hidden");
-      icons();
+    add.addEventListener("click",openMenu);
+  }
+
+  if(close&&!close.dataset.bound){
+    close.dataset.bound="1";
+    close.addEventListener("click",closeMenu);
+  }
+
+  if(!menu.dataset.backdropBound){
+    menu.dataset.backdropBound="1";
+    menu.addEventListener("click",e=>{
+      if(e.target===menu)closeMenu();
     });
   }
 
@@ -2266,8 +2317,22 @@ function bindCategoryBlockMenu() {
     if(btn.dataset.bound)return;
     btn.dataset.bound="1";
     btn.addEventListener("click",async()=>{
-      menu.classList.add("hidden");
+      closeMenu();
       await createMediaBlock(btn.dataset.mediaBlock);
+    });
+  });
+
+  menu.querySelectorAll("[data-card-block]").forEach(btn=>{
+    if(btn.dataset.bound)return;
+    btn.dataset.bound="1";
+    btn.addEventListener("click",async()=>{
+      closeMenu();
+      await createCategoryBlock(
+        "paragraph",
+        null,
+        {title:"",text:""},
+        {presentation:"card"}
+      );
     });
   });
 
@@ -2275,7 +2340,7 @@ function bindCategoryBlockMenu() {
     if(btn.dataset.bound)return;
     btn.dataset.bound="1";
     btn.addEventListener("click",async()=>{
-      menu.classList.add("hidden");
+      closeMenu();
       await createCategoryBlock(btn.dataset.blockType);
     });
   });
@@ -2492,6 +2557,7 @@ function bindCategoryPageBackButton() {
 function closeCategoryEditorOverlays() {
   closeCategoryBlockMenus();
   document.getElementById("categoryBlockMenu")?.classList.add("hidden");
+  document.body.classList.remove("category-block-picker-open");
   document.getElementById("categoryOutline")?.classList.add("hidden");
   document.getElementById("categoryRichToolbar")?.classList.add("hidden");
 }
