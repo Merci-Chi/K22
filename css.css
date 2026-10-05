@@ -2071,3 +2071,10 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
     padding-right:82px;
   }
 }
+
+
+.category-block.pressing-to-select{
+  user-select:none;
+  -webkit-user-select:none;
+  background:#f6f1ec;
+}
