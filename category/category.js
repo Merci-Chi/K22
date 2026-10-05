@@ -601,9 +601,9 @@ function hideRichToolbarSoon() {
 async function createCategoryBlock(type="paragraph", afterId=null) {
   if(!categoryBlocksAvailable){
     toast("Run the Batch 2 category_blocks SQL first",true);
-    return;
+    return null;
   }
-  if(!activeCategory || !CATEGORY_BLOCK_TYPES[type])return;
+  if(!activeCategory || !CATEGORY_BLOCK_TYPES[type])return null;
 
   const rows=blocksForActiveCategory();
   let position=rows.length;
@@ -612,15 +612,14 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
     if(index>=0)position=index+1;
   }
 
-  // Keep positions stable when inserting in the middle.
+  // Finish the source row's autosave before changing surrounding positions.
+  if(afterId)await waitForCategoryBlockSave(afterId);
+
   const later=rows.filter(x=>(x.position||0)>=position);
-  for(const row of later){
+  later.forEach(row=>{
     row.position=(row.position||0)+1;
-    commitMutation({
-      table:"category_blocks",action:"update",
-      payload:{position:row.position},match:{id:row.id}
-    },[row]);
-  }
+    row.updated_at=new Date().toISOString();
+  });
 
   const content=type==="checklist"
     ? {text:"",checked:false}
@@ -638,64 +637,40 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
 
   state.categoryBlocks.push(local);
   saveOfflineCache();
+
   const result=await commitMutation({
     table:"category_blocks",action:"insert",payload:local
   },[local]);
 
   if(result.error){
     state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==local.id);
+    later.forEach(row=>row.position=Math.max(0,(row.position||1)-1));
     saveOfflineCache();
     return toast(result.error.message,true);
   }
   if(result.data?.[0])Object.assign(local,result.data[0]);
 
+  // Shift existing rows only after the insert exists remotely. These updates
+  // are serialized with any pending text autosaves for those blocks.
+  if(later.length){
+    await waitForCategoryBlockSaves(later.map(row=>row.id));
+    await Promise.all(later.map(row=>
+      queueCategoryBlockSave(row,{
+        position:row.position,
+        updated_at:row.updated_at
+      })
+    ));
+  }
+
   renderCategoryBlocks();
   updateCategoryDocumentMeta();
-  setTimeout(()=>document.querySelector('[data-block-id="'+local.id+'"] .category-block-input')?.focus(),40);
-}
+  setTimeout(()=>{
+    const field=document.querySelector('[data-block-id="'+local.id+'"] .category-block-input');
+    field?.focus();
+    placeCaretAtEnd(field);
+  },30);
 
-const categoryBlockSaveChains=new Map();
-const categoryBlockPendingCounts=new Map();
-
-function categoryBlockHasPendingSave(id) {
-  return (categoryBlockPendingCounts.get(id)||0)>0;
-}
-
-function markCategoryBlockSavePending(id,delta) {
-  const next=Math.max(0,(categoryBlockPendingCounts.get(id)||0)+delta);
-  if(next)categoryBlockPendingCounts.set(id,next);
-  else categoryBlockPendingCounts.delete(id);
-}
-
-function waitForCategoryBlockSave(id) {
-  return categoryBlockSaveChains.get(id)||Promise.resolve();
-}
-
-async function waitForCategoryBlockSaves(ids) {
-  await Promise.all([...new Set(ids)].map(waitForCategoryBlockSave));
-}
-
-function queueCategoryBlockSave(block,payload) {
-  const id=block.id;
-  const previous=categoryBlockSaveChains.get(id)||Promise.resolve();
-  markCategoryBlockSavePending(id,1);
-
-  const task=previous
-    .catch(()=>{})
-    .then(()=>commitMutation({
-      table:"category_blocks",action:"update",payload,match:{id}
-    },[block]))
-    .then(result=>{
-      if(result.error)toast(result.error.message,true);
-      return result;
-    })
-    .finally(()=>{
-      markCategoryBlockSavePending(id,-1);
-      if(categoryBlockSaveChains.get(id)===task)categoryBlockSaveChains.delete(id);
-    });
-
-  categoryBlockSaveChains.set(id,task);
-  return task;
+  return local;
 }
 
 async function updateCategoryBlock(block, patch) {
@@ -1462,7 +1437,11 @@ async function convertCategoryBlock(block,nextType) {
   block.content=nextContent;
   await updateCategoryBlock(block,{type:nextType,content:nextContent});
   renderCategoryBlocks();
-  setTimeout(()=>document.querySelector('[data-block-id="'+block.id+'"] .category-block-input')?.focus(),30);
+  setTimeout(()=>{
+    const field=document.querySelector('[data-block-id="'+block.id+'"] .category-block-input');
+    field?.focus();
+    placeCaretAtEnd(field);
+  },30);
 }
 
 function closeCategoryBlockMenus(except=null) {
