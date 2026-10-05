@@ -1,33 +1,33 @@
 // K22 — Universal search
 
 function searchTaskView(task) {
-  if(typeof taskView==="function") return searchTaskView(task);
+  if(typeof taskView==="function") return taskView(task);
   if(task.done) return "completed";
   return task.bucket || task.scope || "task";
 }
 
 function searchTaskDueLabel(task) {
-  if(typeof taskDueLabel==="function") return searchTaskDueLabel(task);
+  if(typeof taskDueLabel==="function") return taskDueLabel(task);
   return task.due_date || "";
 }
 
 function searchEventTimeLabel(ev) {
-  if(typeof eventTimeLabel==="function") return searchEventTimeLabel(ev);
+  if(typeof eventTimeLabel==="function") return eventTimeLabel(ev);
   return ev.event_time || ev.start_time || "";
 }
 
 function searchEventDateLabel(ev) {
-  if(typeof formatEventDateLabel==="function") return searchEventDateLabel(ev);
+  if(typeof formatEventDateLabel==="function") return formatEventDateLabel(ev);
   return ev.event_date || "";
 }
 
 function searchRoutineRepeatLabel(item) {
-  if(typeof routineRepeatLabel==="function") return searchRoutineRepeatLabel(item);
+  if(typeof routineRepeatLabel==="function") return routineRepeatLabel(item);
   return Array.isArray(item.repeat_days) ? item.repeat_days.join(",") : "";
 }
 
 function searchNormalizeBlockContent(block) {
-  if(typeof normalizeBlockContent==="function") return searchNormalizeBlockContent(block);
+  if(typeof normalizeBlockContent==="function") return normalizeBlockContent(block);
   const content=block?.content;
   if(content && typeof content==="object" && !Array.isArray(content))return content;
   if(typeof content==="string")return {text:content};
@@ -35,7 +35,7 @@ function searchNormalizeBlockContent(block) {
 }
 
 function searchAttachmentById(id) {
-  if(typeof attachmentById==="function") return searchAttachmentById(id);
+  if(typeof attachmentById==="function") return attachmentById(id);
   return (state.attachments||[]).find(x=>x.id===id)||null;
 }
 
