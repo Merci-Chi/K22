@@ -1,4 +1,4 @@
-const CACHE_NAME = "k22-shell-v28";
+const CACHE_NAME = "k22-shell-v29";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -53,7 +53,13 @@ self.addEventListener("fetch", event => {
             return response;
           })
           .catch(async () => {
-            return (await caches.match(event.request)) || (await caches.match("./index.html"));
+            // Cached page files do not include query strings. Match the clean
+            // pathname first so offline category/subpage deep links keep the
+            // requested URL instead of dropping back to Home.
+            const cleanUrl=url.origin+url.pathname;
+            return (await caches.match(event.request)) ||
+              (await caches.match(cleanUrl)) ||
+              (await caches.match("./index.html"));
           })
       );
       return;
