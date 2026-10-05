@@ -2,7 +2,7 @@
   "name": "K22 Life Organizer",
   "short_name": "K22",
   "description": "A personal life organizer for tasks, calendar, notes, routines, and categories.",
-  "start_url": "./index.html",
+  "start_url": "./home/home.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f7f1ea",
