@@ -1,25 +1,26 @@
-const CACHE_NAME = "k22-shell-v23";
+const CACHE_NAME = "k22-shell-v24";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./calendar.html",
-  "./today.html",
-  "./notes.html",
-  "./categories.html",
-  "./category.html",
+  "./home/home.html",
+  "./home/home.js",
+  "./calendar/calendar.html",
+  "./calendar/calendar.js",
+  "./today/today.html",
+  "./today/today.js",
+  "./notes/notes.html",
+  "./notes/notes.js",
+  "./categories/categories.html",
+  "./categories/categories.js",
+  "./category/category.html",
+  "./category/category.js",
+  "./shared/attachments.js",
+  "./shared/search.js",
   "./css.css",
   "./js.js",
-  "./js/home/home.js",
-  "./js/calendar/calendar.js",
-  "./js/today/today.js",
-  "./js/notes/notes.js",
-  "./js/categories/categories.js",
-  "./js/category/category.js",
-  "./js/shared/attachments.js",
-  "./js/shared/search.js",
   "./manifest.webmanifest",
   "./icon.svg"
-];
+]
 
 self.addEventListener("install", event => {
   event.waitUntil(
