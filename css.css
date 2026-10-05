@@ -2721,15 +2721,50 @@ body.category-block-picker-open{
 .category-card-grid{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:14px;
+  grid-auto-rows:8px;
+  grid-auto-flow:dense;
+  column-gap:10px;
+  row-gap:10px;
   align-items:start;
   width:100%;
-  margin:4px 0;
+  margin:2px 0;
 }
 
 .category-card-grid>.category-card-grid-item{
   min-width:0;
   width:100%;
+  align-self:start;
+}
+
+/* Cards use a compact control rail so the content gets the space. */
+.category-card-grid .category-block{
+  grid-template-columns:20px minmax(0,1fr);
+  gap:2px;
+  padding:2px 0;
+}
+
+.category-card-grid .category-block-rail{
+  gap:1px;
+  padding-top:2px;
+}
+
+.category-card-grid .category-block-drag,
+.category-card-grid .category-block-more,
+.category-card-grid .category-block-select-state{
+  width:20px;
+  height:20px;
+  border-radius:6px;
+}
+
+.category-card-grid .category-block-drag svg,
+.category-card-grid .category-block-more svg,
+.category-card-grid .category-block-select-state svg{
+  width:11px;
+  height:11px;
+}
+
+.category-card-grid .category-block-action-menu{
+  left:22px;
 }
 
 .category-card-grid>.card-size-small{
@@ -2879,7 +2914,8 @@ body.category-block-picker-open{
 @media(max-width:900px){
   .category-card-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:12px;
+    column-gap:9px;
+    row-gap:9px;
   }
 
   .category-card-grid>.card-size-small{
@@ -2896,12 +2932,24 @@ body.category-block-picker-open{
 @media(max-width:520px){
   .category-card-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:9px;
+    column-gap:7px;
+    row-gap:7px;
   }
 
   .category-card-grid .category-block{
-    grid-template-columns:22px minmax(0,1fr);
-    gap:3px;
+    grid-template-columns:18px minmax(0,1fr);
+    gap:1px;
+  }
+
+  .category-card-grid .category-block-drag,
+  .category-card-grid .category-block-more,
+  .category-card-grid .category-block-select-state{
+    width:18px;
+    height:18px;
+  }
+
+  .category-card-grid .category-block-action-menu{
+    left:19px;
   }
 
   .category-card-grid>.card-size-small{
