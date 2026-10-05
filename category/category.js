@@ -1,6 +1,8 @@
 // K22 — Individual category page / Craft-style editor
 
 let activeCategoryPageId=null;
+const selectedCategoryBlockIds=new Set();
+let lastCategoryBlockSelectionId=null;
 
 function categoryPageRecord(id) {
   return (state.categoryPages||[]).find(page=>page.id===id)||null;
@@ -465,6 +467,208 @@ function blocksForActiveCategory() {
       (block.page_id||null)===(activeCategoryPageId||null)
     )
     .sort((a,b)=>(a.position||0)-(b.position||0));
+}
+
+function setActiveCategoryPageRows(rows) {
+  const pageId=activeCategoryPageId||null;
+  state.categoryBlocks=(state.categoryBlocks||[])
+    .filter(block=>!(
+      block.category===activeCategory &&
+      (block.page_id||null)===pageId
+    ))
+    .concat(rows);
+}
+
+function selectedCategoryBlocks() {
+  return blocksForActiveCategory().filter(block=>selectedCategoryBlockIds.has(block.id));
+}
+
+function clearCategoryBlockSelection(render=true) {
+  selectedCategoryBlockIds.clear();
+  lastCategoryBlockSelectionId=null;
+  if(render)renderCategoryBlocks();
+  else renderCategoryBulkToolbar();
+}
+
+function toggleCategoryBlockSelection(blockId,range=false) {
+  const rows=blocksForActiveCategory();
+
+  if(range && lastCategoryBlockSelectionId){
+    const start=rows.findIndex(x=>x.id===lastCategoryBlockSelectionId);
+    const end=rows.findIndex(x=>x.id===blockId);
+    if(start>=0 && end>=0){
+      const lo=Math.min(start,end);
+      const hi=Math.max(start,end);
+      for(let i=lo;i<=hi;i++)selectedCategoryBlockIds.add(rows[i].id);
+    }else{
+      selectedCategoryBlockIds.add(blockId);
+    }
+  }else if(selectedCategoryBlockIds.has(blockId)){
+    selectedCategoryBlockIds.delete(blockId);
+  }else{
+    selectedCategoryBlockIds.add(blockId);
+  }
+
+  lastCategoryBlockSelectionId=blockId;
+  renderCategoryBlocks();
+}
+
+function convertCategoryContentForType(block,nextType) {
+  const nextContent={...normalizeBlockContent(block)};
+  if(nextType==="checklist" && nextContent.checked===undefined)nextContent.checked=false;
+  if(nextType!=="checklist")delete nextContent.checked;
+  if(nextType!=="link")delete nextContent.url;
+  if(nextType==="link" && nextContent.url===undefined)nextContent.url="";
+  return nextContent;
+}
+
+async function bulkConvertCategoryBlocks(nextType) {
+  if(!nextType)return;
+  const rows=selectedCategoryBlocks();
+  const convertible=rows.filter(block=>
+    isConvertibleCategoryBlock(block.type) &&
+    isConvertibleCategoryBlock(nextType)
+  );
+  if(!convertible.length){
+    toast("Those selected blocks cannot be changed to that type",true);
+    return;
+  }
+
+  const results=await Promise.all(convertible.map(block=>{
+    const nextContent=convertCategoryContentForType(block,nextType);
+    block.type=nextType;
+    block.content=nextContent;
+    block.updated_at=new Date().toISOString();
+    return queueCategoryBlockSave(block,{
+      type:nextType,
+      content:nextContent,
+      updated_at:block.updated_at
+    });
+  }));
+
+  saveOfflineCache();
+  renderCategoryBlocks();
+  updateCategoryDocumentMeta();
+
+  const failed=results.find(result=>result?.error);
+  if(failed?.error)return toast(failed.error.message,true);
+  const skipped=rows.length-convertible.length;
+  toast("Changed "+convertible.length+" block"+(convertible.length===1?"":"s")+(skipped?" · "+skipped+" skipped":""));
+}
+
+async function bulkDeleteCategoryBlocks() {
+  const rows=selectedCategoryBlocks();
+  if(!rows.length)return;
+  if(!confirm("Delete "+rows.length+" selected block"+(rows.length===1?"":"s")+"?"))return;
+
+  await waitForCategoryBlockSaves(rows.map(x=>x.id));
+  const ids=new Set(rows.map(x=>x.id));
+  const remaining=blocksForActiveCategory().filter(x=>!ids.has(x.id));
+
+  setActiveCategoryPageRows(remaining);
+  selectedCategoryBlockIds.clear();
+  lastCategoryBlockSelectionId=null;
+  saveOfflineCache();
+  renderCategoryBlocks();
+
+  const results=await Promise.all(rows.map(block=>
+    commitMutation({table:"category_blocks",action:"delete",match:{id:block.id}})
+  ));
+
+  const failed=results.find(result=>result?.error);
+  if(failed?.error){
+    toast(failed.error.message,true);
+    await loadAll();
+    return;
+  }
+
+  await persistCategoryBlockOrder(remaining);
+  renderCategoryBlocks();
+  toast(rows.length+" block"+(rows.length===1?"":"s")+" deleted");
+}
+
+async function bulkDuplicateCategoryBlocks() {
+  const selected=selectedCategoryBlocks();
+  if(!selected.length)return;
+
+  const selectedIds=new Set(selected.map(x=>x.id));
+  const rows=blocksForActiveCategory();
+  const nextRows=[];
+  const clones=[];
+
+  rows.forEach(block=>{
+    nextRows.push(block);
+    if(!selectedIds.has(block.id))return;
+    const clone={
+      id:crypto.randomUUID(),
+      user_id:currentUser.id,
+      category:activeCategory,
+      page_id:activeCategoryPageId||null,
+      type:block.type,
+      content:structuredClone(normalizeBlockContent(block)),
+      settings:structuredClone(block.settings||{}),
+      position:nextRows.length,
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    };
+    nextRows.push(clone);
+    clones.push(clone);
+  });
+
+  setActiveCategoryPageRows(nextRows);
+  selectedCategoryBlockIds.clear();
+  clones.forEach(clone=>selectedCategoryBlockIds.add(clone.id));
+  lastCategoryBlockSelectionId=clones.at(-1)?.id||null;
+  saveOfflineCache();
+  renderCategoryBlocks();
+
+  const results=await Promise.all(clones.map(clone=>
+    commitMutation({table:"category_blocks",action:"insert",payload:clone},[clone])
+  ));
+  const failed=results.find(result=>result?.error);
+  if(failed?.error){
+    toast(failed.error.message,true);
+    await loadAll();
+    return;
+  }
+
+  results.forEach((result,index)=>{
+    if(result.data?.[0])Object.assign(clones[index],result.data[0]);
+  });
+
+  await persistCategoryBlockOrder(nextRows);
+  renderCategoryBlocks();
+  toast(clones.length+" block"+(clones.length===1?"":"s")+" duplicated");
+}
+
+function renderCategoryBulkToolbar() {
+  const toolbar=document.getElementById("categoryBulkToolbar");
+  const count=document.getElementById("categoryBulkCount");
+  if(!toolbar)return;
+
+  const selected=selectedCategoryBlocks();
+  toolbar.classList.toggle("hidden",selected.length===0);
+  if(count)count.textContent=selected.length+" selected";
+
+  const convert=document.getElementById("categoryBulkConvert");
+  if(convert)convert.value="";
+
+  if(toolbar.dataset.bound)return;
+  toolbar.dataset.bound="1";
+
+  document.getElementById("categoryBulkSelectAll")?.addEventListener("click",()=>{
+    blocksForActiveCategory().forEach(block=>selectedCategoryBlockIds.add(block.id));
+    lastCategoryBlockSelectionId=blocksForActiveCategory().at(-1)?.id||null;
+    renderCategoryBlocks();
+  });
+  document.getElementById("categoryBulkClear")?.addEventListener("click",()=>clearCategoryBlockSelection());
+  document.getElementById("categoryBulkDelete")?.addEventListener("click",bulkDeleteCategoryBlocks);
+  document.getElementById("categoryBulkDuplicate")?.addEventListener("click",bulkDuplicateCategoryBlocks);
+  convert?.addEventListener("change",async()=>{
+    const nextType=convert.value;
+    convert.value="";
+    await bulkConvertCategoryBlocks(nextType);
+  });
 }
 
 function normalizeBlockContent(block) {
@@ -1654,7 +1858,7 @@ async function duplicateCategoryBlock(block) {
   };
 
   rows.splice(index+1,0,clone);
-  state.categoryBlocks=state.categoryBlocks.filter(x=>x.category!==activeCategory).concat(rows);
+  setActiveCategoryPageRows(rows);
   saveOfflineCache();
 
   const result=await commitMutation({
@@ -1682,12 +1886,7 @@ async function duplicateCategoryBlock(block) {
 
 async function convertCategoryBlock(block,nextType) {
   if(!isConvertibleCategoryBlock(block.type)||!isConvertibleCategoryBlock(nextType))return;
-  const content=normalizeBlockContent(block);
-  const nextContent={...content};
-
-  if(nextType==="checklist" && nextContent.checked===undefined)nextContent.checked=false;
-  if(nextType!=="checklist")delete nextContent.checked;
-  if(nextType!=="link")delete nextContent.url;
+  const nextContent=convertCategoryContentForType(block,nextType);
 
   block.type=nextType;
   block.content=nextContent;
@@ -1789,6 +1988,7 @@ function renderCategoryBlocks() {
       empty.innerHTML='<div class="category-block-empty-icon"><i data-lucide="database"></i></div><b>Block editor needs setup</b><span>Run the Batch 2 SQL in Supabase, then refresh K22.</span>';
     }
     if(count)count.textContent="Setup needed";
+    renderCategoryBulkToolbar();
     bindCategoryBlockMenu();
     icons();
     return;
@@ -1810,13 +2010,15 @@ function renderCategoryBlocks() {
     const row=document.createElement("div");
     const parentSection=block.type==="section"?null:sectionForPosition(rows,index);
     const sectionStyle=parentSection?.settings?.style||"plain";
-    row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(parentSection?" in-section section-style-"+sectionStyle:"");
+    const selected=selectedCategoryBlockIds.has(block.id);
+    row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(selected?" selected":"")+(parentSection?" in-section section-style-"+sectionStyle:"");
     row.dataset.blockId=block.id;
     row.draggable=true;
 
     const rail=document.createElement("div");
     rail.className="category-block-rail category-block-actions";
     rail.innerHTML=
+      '<button type="button" class="category-block-select" aria-label="'+(selected?"Deselect":"Select")+' block" aria-pressed="'+selected+'" title="Select block"><i data-lucide="'+(selected?"check":"circle")+'"></i></button>'+
       '<button type="button" class="category-block-drag" aria-label="Drag block" title="Drag to reorder"><i data-lucide="grip-vertical"></i></button>'+
       '<button type="button" class="category-block-more" aria-label="Block options"><i data-lucide="ellipsis"></i></button>';
 
@@ -1826,6 +2028,12 @@ function renderCategoryBlocks() {
     const field=categoryBlockField(block,content);
     row.appendChild(rail);
     row.appendChild(field);
+
+    rail.querySelector(".category-block-select").addEventListener("click",e=>{
+      e.preventDefault();
+      e.stopPropagation();
+      toggleCategoryBlockSelection(block.id,e.shiftKey);
+    });
 
     rail.querySelector(".category-block-more").addEventListener("click",e=>{
       e.stopPropagation();
@@ -1882,6 +2090,7 @@ function renderCategoryBlocks() {
     }
   });
 
+  renderCategoryBulkToolbar();
   bindCategoryBlockMenu();
   bindCategoryOutline();
   bindCategoryStarterTemplate();
@@ -2134,11 +2343,18 @@ function openCategory(category, options={}) {
     return;
   }
 
+  const previousCategory=activeCategory;
+  const previousPageId=activeCategoryPageId||null;
   activeCategory=category;
 
   const requestedPage=options.pageId||null;
   const page=requestedPage?categoryPageRecord(requestedPage):null;
   activeCategoryPageId=page && page.category===category ? page.id : null;
+
+  if(previousCategory!==activeCategory || previousPageId!==(activeCategoryPageId||null)){
+    selectedCategoryBlockIds.clear();
+    lastCategoryBlockSelectionId=null;
+  }
 
   const wantedUrl=categoryPageUrl(category,activeCategoryPageId);
   const currentUrl=new URL(location.href);
@@ -2183,6 +2399,10 @@ function bindCategoryEscapePolish(){
   categoryEscapePolishBound=true;
   document.addEventListener("keydown",e=>{
     if(document.body.dataset.page!=="category"||e.key!=="Escape")return;
+    if(selectedCategoryBlockIds.size){
+      clearCategoryBlockSelection();
+      return;
+    }
     closeCategoryEditorOverlays();
   });
 }
