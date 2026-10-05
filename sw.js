@@ -1,4 +1,4 @@
-const CACHE_NAME = "k22-shell-v21";
+const CACHE_NAME = "k22-shell-v22";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,14 @@ const APP_SHELL = [
   "./category.html",
   "./css.css",
   "./js.js",
+  "./home.js",
+  "./calendar.js",
+  "./today.js",
+  "./notes.js",
+  "./categories.js",
+  "./category.js",
+  "./attachments.js",
+  "./search.js",
   "./manifest.webmanifest",
   "./icon.svg"
 ];
