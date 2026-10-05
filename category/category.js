@@ -2401,7 +2401,6 @@ async function deleteCategorySubpage(page) {
 function renderCategorySubpages() {
   const holder=document.getElementById("categorySubpages");
   const empty=document.getElementById("categorySubpagesEmpty");
-  const add=document.getElementById("addCategorySubpage");
   const title=document.getElementById("categorySubpagesTitle");
   const files=document.querySelector(".category-page-files");
   if(!holder)return;
@@ -2412,19 +2411,30 @@ function renderCategorySubpages() {
   if(files)files.classList.toggle("hidden",!!activeCategoryPageId);
 
   holder.innerHTML="";
+
   children.forEach(page=>{
     const card=document.createElement("article");
     card.className="category-subpage-card";
     const childCount=categoryPageChildren(page.id).length;
+    const blockCount=(state.categoryBlocks||[]).filter(block=>
+      block.category===activeCategory &&
+      (block.page_id||null)===page.id
+    ).length;
+
     card.innerHTML=
       '<button type="button" class="category-subpage-open">'+
         '<span class="category-subpage-icon"><i data-lucide="file-text"></i></span>'+
-        '<span class="category-subpage-copy"><b>'+esc(page.title)+'</b><small>'+(childCount?childCount+' subpage'+(childCount===1?"":"s"):'Open page')+'</small></span>'+
+        '<span class="category-subpage-copy">'+
+          '<b>'+esc(page.title)+'</b>'+
+          '<small>'+blockCount+' '+(blockCount===1?'block':'blocks')+
+            (childCount?' · '+childCount+' subpage'+(childCount===1?'':'s'):'')+
+          '</small>'+
+        '</span>'+
         '<i data-lucide="chevron-right"></i>'+
       '</button>'+
       '<div class="category-subpage-actions">'+
-        '<button type="button" data-action="rename" aria-label="Rename"><i data-lucide="pencil"></i></button>'+
-        '<button type="button" data-action="delete" aria-label="Delete"><i data-lucide="trash-2"></i></button>'+
+        '<button type="button" data-action="rename" aria-label="Rename '+esc(page.title)+'"><i data-lucide="pencil"></i></button>'+
+        '<button type="button" data-action="delete" aria-label="Delete '+esc(page.title)+'"><i data-lucide="trash-2"></i></button>'+
       '</div>';
 
     card.querySelector(".category-subpage-open").addEventListener("click",()=>{
@@ -2435,16 +2445,18 @@ function renderCategorySubpages() {
     holder.appendChild(card);
   });
 
-  if(empty){
-    empty.textContent=current
-      ? "No subpages inside "+current.title+" yet."
-      : "No subpages here yet.";
-    empty.classList.toggle("hidden",children.length>0);
-  }
+  const addCard=document.createElement("button");
+  addCard.type="button";
+  addCard.id="addCategorySubpage";
+  addCard.className="category-subpage-card category-subpage-new-card";
+  addCard.innerHTML=
+    '<span class="category-subpage-icon"><i data-lucide="plus"></i></span>'+
+    '<span class="category-subpage-copy"><b>New Subpage</b><small>Create a page inside '+esc(current?.title||activeCategory)+'</small></span>';
+  addCard.addEventListener("click",createCategorySubpage);
+  holder.appendChild(addCard);
 
-  if(add&&!add.dataset.bound){
-    add.dataset.bound="1";
-    add.addEventListener("click",createCategorySubpage);
+  if(empty){
+    empty.classList.add("hidden");
   }
 
   renderCategoryBreadcrumb();
