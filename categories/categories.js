@@ -30,9 +30,10 @@ const CATEGORY_PAGE_META = {
   "Car": { icon:"car-front", tone:"blue", description:"Maintenance, mileage, registration, insurance, repairs, receipts, and car notes." }
 };
 
-function categoryPageUrl(category) {
+function categoryPageUrl(category,pageId=null) {
   const url=new URL("../category/category.html",location.href);
   url.searchParams.set("name",category);
+  if(pageId)url.searchParams.set("page",pageId);
   return url.href;
 }
 
