@@ -1394,11 +1394,10 @@ function categoryBlockField(block, content) {
 
     const isListRow=["bullet","numbered","checklist"].includes(block.type);
     if(!isListRow){
-      // Enter always creates a real block underneath.
-      // Plain Enter starts normal Text. Shift+Enter continues the SAME
-      // block format (Heading -> Heading, Quote -> Quote, etc.).
+      // Enter creates a brand-new Text block underneath.
       if(
         e.key==="Enter" &&
+        !e.shiftKey &&
         !e.metaKey &&
         !e.ctrlKey &&
         !e.altKey
@@ -1417,23 +1416,18 @@ function categoryBlockField(block, content) {
           content={...content,text:currentText,html:currentHtml};
           await updateCategoryBlock(block,{content});
 
-          const nextType=e.shiftKey ? block.type : "paragraph";
-          let nextContent={
+          await createCategoryBlock("paragraph",block.id,{
             text:trailing.text||"",
             html:trailing.html||""
-          };
-
-          // Keep type-specific content shape when continuing the same format.
-          if(nextType==="link"){
-            nextContent={...nextContent,url:""};
-          }
-
-          await createCategoryBlock(nextType,block.id,nextContent);
+          });
         } finally {
           field.dataset.blockActionBusy="0";
         }
         return;
       }
+
+      // Shift+Enter is a soft line break inside this SAME block.
+      if(e.key==="Enter" && e.shiftKey)return;
 
       if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
         e.preventDefault();
