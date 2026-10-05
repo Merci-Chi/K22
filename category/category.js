@@ -1562,6 +1562,30 @@ document.addEventListener("click",e=>{
 });
 
 
+function revealCategoryBlockForSearch(blockId) {
+  const rows=blocksForActiveCategory();
+  const index=rows.findIndex(row=>row.id===blockId);
+  if(index<0)return false;
+
+  // Walk backward to the nearest section. If that section is collapsed,
+  // expand it so the matching block can actually be rendered and focused.
+  for(let i=index-1;i>=0;i--){
+    const row=rows[i];
+    if(row.type!=="section")continue;
+    if(row.settings?.collapsed){
+      row.settings={...(row.settings||{}),collapsed:false};
+      saveOfflineCache();
+      queueCategoryBlockSave(row,{
+        settings:row.settings,
+        updated_at:new Date().toISOString()
+      });
+      renderCategoryBlocks();
+    }
+    break;
+  }
+  return true;
+}
+
 function renderCategoryBlocks() {
   const canvas=document.getElementById("categoryBlockCanvas");
   const empty=document.getElementById("categoryBlockEmpty");
