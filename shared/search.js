@@ -137,7 +137,7 @@ function buildUniversalSearchResults(query) {
     if(hay.includes(q)){
       results.push({
         type:item.category,icon:"folder-open",title:item.text,
-        detail:"Category item",page:"category.html",action:"category-item",id:item.id,category:item.category
+        detail:"Legacy category item",page:"category.html",action:"category",id:item.id,category:item.category
       });
     }
   });
@@ -371,7 +371,6 @@ function handleSearchJump(result) {
   if(
     result.action==="category" ||
     result.action==="category-page" ||
-    result.action==="category-item" ||
     result.action==="category-block"
   ){
     if(typeof openCategory==="function"){
@@ -410,19 +409,7 @@ function handleSearchJump(result) {
       },120);
     }
 
-    if(result.action==="category-item"&&result.id){
-      setTimeout(()=>{
-        const item=state.categoryItems.find(x=>x.id===result.id);
-        if(item){
-          editingCategoryItemId=item.id;
-          const input=document.getElementById("categoryItemInput");
-          if(input)input.value=item.text;
-          document.getElementById("categorySubmitBtn").textContent="Save";
-          document.getElementById("cancelCategoryEdit").classList.remove("hidden");
-          renderCategorySpecialFields(item);
-        }
-      },60);
-    }
+
   }
 
   localStorage.removeItem("k22SearchJump");
