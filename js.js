@@ -4782,7 +4782,7 @@ function startRealtime() {
     .on("postgres_changes",{event:"*",schema:"public",table:"notes"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"category_items"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"category_notes"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"category_blocks"},()=>loadAll())
+    .on("postgres_changes",{event:"*",schema:"public",table:"category_blocks"},handleCategoryBlockRealtime)
     .on("postgres_changes",{event:"*",schema:"public",table:"routine_items"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"attachments"},()=>loadAll())
     .on("postgres_changes",{event:"*",schema:"public",table:"user_settings"},()=>loadAll())
