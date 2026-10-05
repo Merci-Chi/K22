@@ -69,21 +69,32 @@ function updateCategoryDocumentMeta() {
   const cover=document.getElementById("categoryCover");
   const edited=document.getElementById("categoryLastEdited");
   const meta=CATEGORY_PAGE_META[activeCategory] || {icon:"folder-open",tone:"blue",description:"Your space for everything that belongs here."};
+  const activePage=currentCategoryPage();
 
-  if(title)title.textContent=activeCategory;
-  if(description)description.textContent=meta.description;
+  if(title)title.textContent=activePage?.title||activeCategory;
+  if(description)description.textContent=activePage
+    ? "Subpage in "+activeCategory
+    : meta.description;
   if(icon)icon.innerHTML='<i data-lucide="'+meta.icon+'"></i>';
   if(cover){
     cover.className="category-cover tone-"+meta.tone;
     cover.setAttribute("aria-label",activeCategory+" cover");
   }
-  document.title=activeCategory+" — K22";
+  document.title=(activePage?.title||activeCategory)+" — K22";
 
   const timestamps=[
-    ...state.categoryItems.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
-    ...(state.categoryBlocks||[]).filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
-    ...state.categoryNotes.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at),
-    ...state.attachments.filter(x=>x.owner_type==="category"&&x.owner_key===activeCategory).map(x=>x.created_at)
+    ...(activeCategoryPageId
+      ? []
+      : state.categoryItems.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at)),
+    ...(state.categoryBlocks||[])
+      .filter(x=>x.category===activeCategory && (x.page_id||null)===(activeCategoryPageId||null))
+      .map(x=>x.updated_at||x.created_at),
+    ...(activeCategoryPageId
+      ? [activePage?.updated_at||activePage?.created_at]
+      : state.categoryNotes.filter(x=>x.category===activeCategory).map(x=>x.updated_at||x.created_at)),
+    ...(activeCategoryPageId
+      ? []
+      : state.attachments.filter(x=>x.owner_type==="category"&&x.owner_key===activeCategory).map(x=>x.created_at))
   ].filter(Boolean).sort().reverse();
 
   if(edited){
@@ -359,6 +370,7 @@ function starterTemplateRows(category,startPosition=0){
       id:crypto.randomUUID(),
       user_id:currentUser.id,
       category,
+      page_id:activeCategoryPageId||null,
       type,
       content,
       settings,
@@ -440,7 +452,10 @@ const CATEGORY_BLOCK_TYPES = {
 
 function blocksForActiveCategory() {
   return (state.categoryBlocks || [])
-    .filter(block=>block.category===activeCategory)
+    .filter(block=>
+      block.category===activeCategory &&
+      (block.page_id||null)===(activeCategoryPageId||null)
+    )
     .sort((a,b)=>(a.position||0)-(b.position||0));
 }
 
@@ -452,6 +467,7 @@ function normalizeBlockContent(block) {
 }
 
 async function migrateCategoryLegacyToBlocks(category) {
+  if(activeCategoryPageId)return;
   if(!categoryBlocksAvailable || !navigator.onLine || !currentUser)return;
   const existing=(state.categoryBlocks||[]).filter(x=>x.category===category);
   if(existing.length)return;
@@ -680,7 +696,7 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
         : {text:""};
 
   const local={
-    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,type,
+    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type,
     content,settings:{},position,
     created_at:new Date().toISOString(),updated_at:new Date().toISOString()
   };
@@ -867,7 +883,7 @@ async function createMediaBlock(kind) {
 
   const rows=blocksForActiveCategory();
   const local={
-    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,type:kind,
+    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type:kind,
     content,settings:kind==="image"?{size:"medium"}:kind==="gallery"?{columns:2}:{},
     position:rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()
   };
