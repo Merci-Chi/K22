@@ -1075,6 +1075,8 @@ async function deleteCategoryBlock(block) {
   await waitForCategoryBlockSave(block.id);
 
   state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==block.id);
+  selectedCategoryBlockIds.delete(block.id);
+  if(lastCategoryBlockSelectionId===block.id)lastCategoryBlockSelectionId=null;
   saveOfflineCache();
   renderCategoryBlocks();
 
