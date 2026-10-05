@@ -2677,3 +2677,41 @@ body.category-block-picker-open{
     width:100%;
   }
 }
+
+
+/* Keep Add Block popup perfectly centered */
+.category-block-menu{
+  position:fixed!important;
+  inset:0!important;
+  top:0!important;
+  right:0!important;
+  bottom:0!important;
+  left:0!important;
+  width:100vw!important;
+  height:100vh!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:24px!important;
+  overflow:auto!important;
+}
+
+.category-block-picker-panel{
+  margin:auto!important;
+  flex:0 1 auto;
+}
+
+@media(max-width:760px){
+  .category-block-menu{
+    padding:14px!important;
+    align-items:center!important;
+    justify-content:center!important;
+  }
+
+  .category-block-picker-panel{
+    width:min(100%,680px)!important;
+    max-height:82vh!important;
+  }
+}
