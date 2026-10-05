@@ -136,26 +136,38 @@
                 <span>Add block</span>
               </button>
 
-              <div id="categoryBlockMenu" class="category-block-menu hidden">
-                <button type="button" data-block-type="paragraph"><i data-lucide="pilcrow"></i><span><b>Text</b><small>Plain paragraph</small></span></button>
-                <button type="button" data-block-type="heading1"><i data-lucide="heading-1"></i><span><b>Heading 1</b><small>Large section title</small></span></button>
-                <button type="button" data-block-type="heading2"><i data-lucide="heading-2"></i><span><b>Heading 2</b><small>Medium heading</small></span></button>
-                <button type="button" data-block-type="heading3"><i data-lucide="heading-3"></i><span><b>Heading 3</b><small>Small heading</small></span></button>
-                <button type="button" data-block-type="bullet"><i data-lucide="list"></i><span><b>Bullet</b><small>Bullet point</small></span></button>
-                <button type="button" data-block-type="numbered"><i data-lucide="list-ordered"></i><span><b>Numbered</b><small>Numbered point</small></span></button>
-                <button type="button" data-block-type="checklist"><i data-lucide="list-checks"></i><span><b>Checklist</b><small>Checkable item</small></span></button>
-                <button type="button" data-block-type="quote"><i data-lucide="quote"></i><span><b>Quote</b><small>Pull quote</small></span></button>
-                <button type="button" data-block-type="callout"><i data-lucide="highlighter"></i><span><b>Highlight</b><small>Callout box</small></span></button>
-                <button type="button" data-block-type="section"><i data-lucide="panel-top"></i><span><b>Section</b><small>Collapsible page section</small></span></button>
-                <button type="button" data-block-type="columns"><i data-lucide="columns-2"></i><span><b>Columns</b><small>Two-column layout</small></span></button>
-                <button type="button" data-media-block="image"><i data-lucide="image"></i><span><b>Image</b><small>Photo with caption</small></span></button>
-                <button type="button" data-media-block="photo-card"><i data-lucide="image-plus"></i><span><b>Photo Card</b><small>Square polaroid-style card</small></span></button>
-                <button type="button" data-media-block="gallery"><i data-lucide="gallery-horizontal"></i><span><b>Gallery</b><small>Multiple photos</small></span></button>
-                <button type="button" data-media-block="file"><i data-lucide="file"></i><span><b>File Card</b><small>Document or attachment</small></span></button>
-                <button type="button" data-block-type="link"><i data-lucide="link"></i><span><b>Link</b><small>Saved web link</small></span></button>
-                <button type="button" data-block-type="code"><i data-lucide="code-2"></i><span><b>Code</b><small>Code or snippet</small></span></button>
-                <button type="button" data-block-type="divider"><i data-lucide="minus"></i><span><b>Divider</b><small>Section separator</small></span></button>
-                <button type="button" data-block-type="spacer"><i data-lucide="move-vertical"></i><span><b>Spacer</b><small>Add breathing room</small></span></button>
+              <div id="categoryBlockMenu" class="category-block-menu hidden" role="dialog" aria-modal="true" aria-labelledby="categoryBlockPickerTitle">
+                <div class="category-block-picker-panel">
+                  <div class="category-block-picker-head">
+                    <div>
+                      <small>Add to page</small>
+                      <h3 id="categoryBlockPickerTitle">Add Block</h3>
+                    </div>
+                    <button id="closeCategoryBlockMenu" class="category-block-picker-close" type="button" aria-label="Close Add Block"><i data-lucide="x"></i></button>
+                  </div>
+                  <div class="category-block-picker-grid">
+                    <button type="button" data-block-type="paragraph"><i data-lucide="pilcrow"></i><span><b>Text</b><small>Plain paragraph</small></span></button>
+                    <button type="button" data-card-block="text-card"><i data-lucide="square-stack"></i><span><b>Card</b><small>Title + note card</small></span></button>
+                    <button type="button" data-block-type="heading1"><i data-lucide="heading-1"></i><span><b>Heading 1</b><small>Large section title</small></span></button>
+                    <button type="button" data-block-type="heading2"><i data-lucide="heading-2"></i><span><b>Heading 2</b><small>Medium heading</small></span></button>
+                    <button type="button" data-block-type="heading3"><i data-lucide="heading-3"></i><span><b>Heading 3</b><small>Small heading</small></span></button>
+                    <button type="button" data-block-type="bullet"><i data-lucide="list"></i><span><b>Bullet</b><small>Bullet point</small></span></button>
+                    <button type="button" data-block-type="numbered"><i data-lucide="list-ordered"></i><span><b>Numbered</b><small>Numbered point</small></span></button>
+                    <button type="button" data-block-type="checklist"><i data-lucide="list-checks"></i><span><b>Checklist</b><small>Checkable item</small></span></button>
+                    <button type="button" data-block-type="quote"><i data-lucide="quote"></i><span><b>Quote</b><small>Pull quote</small></span></button>
+                    <button type="button" data-block-type="callout"><i data-lucide="highlighter"></i><span><b>Highlight</b><small>Callout box</small></span></button>
+                    <button type="button" data-block-type="section"><i data-lucide="panel-top"></i><span><b>Section</b><small>Collapsible page section</small></span></button>
+                    <button type="button" data-block-type="columns"><i data-lucide="columns-2"></i><span><b>Columns</b><small>Two-column layout</small></span></button>
+                    <button type="button" data-media-block="image"><i data-lucide="image"></i><span><b>Image</b><small>Photo with caption</small></span></button>
+                    <button type="button" data-media-block="photo-card"><i data-lucide="image-plus"></i><span><b>Photo Card</b><small>Square polaroid-style card</small></span></button>
+                    <button type="button" data-media-block="gallery"><i data-lucide="gallery-horizontal"></i><span><b>Gallery</b><small>Multiple photos</small></span></button>
+                    <button type="button" data-media-block="file"><i data-lucide="file"></i><span><b>File Card</b><small>Document or attachment</small></span></button>
+                    <button type="button" data-block-type="link"><i data-lucide="link"></i><span><b>Link</b><small>Saved web link</small></span></button>
+                    <button type="button" data-block-type="code"><i data-lucide="code-2"></i><span><b>Code</b><small>Code or snippet</small></span></button>
+                    <button type="button" data-block-type="divider"><i data-lucide="minus"></i><span><b>Divider</b><small>Section separator</small></span></button>
+                    <button type="button" data-block-type="spacer"><i data-lucide="move-vertical"></i><span><b>Spacer</b><small>Add breathing room</small></span></button>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
