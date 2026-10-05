@@ -1285,7 +1285,7 @@ async function createMediaBlock(kind) {
 
   const storedType=isPhotoCard?"image":kind;
   const settings=isPhotoCard
-    ? {size:"small",presentation:"polaroid",card_style:"polaroid"}
+    ? {size:"small",presentation:"polaroid",card_style:"polaroid",image_ratio:"square"}
     : kind==="image"
       ? {size:"medium"}
       : kind==="gallery"
@@ -1352,6 +1352,7 @@ function mediaBlockField(block,content) {
     if(isPolaroid){
       wrap.classList.add("category-photo-card");
       wrap.classList.add("card-style-"+categoryCardStyle(block));
+      wrap.classList.add("photo-ratio-"+categoryPhotoRatio(block));
     }
 
     if(isPolaroid){
@@ -2070,20 +2071,26 @@ function isCategoryCardBlock(block) {
 }
 
 function categoryCardSize(block) {
-  return ["small","medium","full"].includes(block.settings?.size)
+  return ["small","medium","wide","full"].includes(block.settings?.size)
     ? block.settings.size
     : "small";
 }
 
 function categoryCardStyle(block) {
   if(block.type==="image" && block.settings?.presentation==="polaroid"){
-    return ["polaroid","soft","minimal"].includes(block.settings?.card_style)
+    return ["polaroid","regular","soft","minimal"].includes(block.settings?.card_style)
       ? block.settings.card_style
       : "polaroid";
   }
   return ["plain","soft","outline"].includes(block.settings?.card_style)
     ? block.settings.card_style
     : "plain";
+}
+
+function categoryPhotoRatio(block) {
+  return ["square","portrait","landscape","wide","original"].includes(block.settings?.image_ratio)
+    ? block.settings.image_ratio
+    : "square";
 }
 
 async function updateCategoryCardSetting(block,patch) {
@@ -2114,16 +2121,16 @@ function categoryBlockActionMenu(block,index,total) {
   const cardSize=isCard?categoryCardSize(block):null;
   const cardStyle=isCard?categoryCardStyle(block):null;
   const cardSizeItems=isCard
-    ? ["small","medium","full"].map(size=>
+    ? ["small","medium","wide","full"].map(size=>
         '<button type="button" data-card-size="'+size+'" class="'+(cardSize===size?"active":"")+'">'+
-          '<i data-lucide="'+(size==="small"?"square":size==="medium"?"panels-top-left":"rectangle-horizontal")+'"></i>'+
-          '<span>'+(size==="small"?"Small":size==="medium"?"Medium":"Full")+'</span>'+
+          '<i data-lucide="'+(size==="small"?"square":size==="medium"?"panels-top-left":size==="wide"?"rectangle-horizontal":"maximize-2")+'"></i>'+
+          '<span>'+(size==="small"?"Small":size==="medium"?"Medium":size==="wide"?"Wide":"Full")+'</span>'+
         '</button>'
       ).join("")
     : "";
 
   const styleChoices=block.type==="image"
-    ? [["polaroid","Polaroid","image"],["soft","Soft","sparkles"],["minimal","Minimal","frame"]]
+    ? [["polaroid","Polaroid","images"],["regular","Regular","image"],["soft","Soft","sparkles"],["minimal","Minimal","frame"]]
     : [["plain","Plain","square"],["soft","Soft","sparkles"],["outline","Outline","panel-top"]];
 
   const cardStyleItems=isCard
@@ -2134,11 +2141,26 @@ function categoryBlockActionMenu(block,index,total) {
       ).join("")
     : "";
 
+  const photoRatio=block.type==="image" && isCard ? categoryPhotoRatio(block) : null;
+  const photoRatioItems=photoRatio
+    ? [
+        ["square","Square","square"],
+        ["portrait","Portrait","rectangle-vertical"],
+        ["landscape","Landscape","rectangle-horizontal"],
+        ["wide","Wide","gallery-horizontal-end"],
+        ["original","Original","scan"]
+      ].map(([value,label,icon])=>
+        '<button type="button" data-photo-ratio="'+value+'" class="'+(photoRatio===value?"active":"")+'">'+
+          '<i data-lucide="'+icon+'"></i><span>'+label+'</span>'+
+        '</button>'
+      ).join("")
+    : "";
+
   menu.innerHTML=`
     <button type="button" data-action="up" ${index===0?"disabled":""}><i data-lucide="arrow-up"></i><span>Move up</span></button>
     <button type="button" data-action="down" ${index===total-1?"disabled":""}><i data-lucide="arrow-down"></i><span>Move down</span></button>
     <button type="button" data-action="duplicate"><i data-lucide="copy"></i><span>Duplicate</span></button>
-    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>' : ""}
+    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>'+(photoRatioItems?'<div class="category-block-convert-label">Photo shape</div><div class="category-block-card-options">'+photoRatioItems+'</div>':'') : ""}
     ${convertItems ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Turn into</div><div class="category-block-convert-list">'+convertItems+'</div>' : ""}
     <div class="category-block-menu-separator"></div>
     <button type="button" data-action="delete" class="danger"><i data-lucide="trash-2"></i><span>Delete</span></button>
@@ -2158,6 +2180,7 @@ function categoryBlockActionMenu(block,index,total) {
     }
     if(button.dataset.cardSize)return updateCategoryCardSetting(block,{size:button.dataset.cardSize});
     if(button.dataset.cardStyle)return updateCategoryCardSetting(block,{card_style:button.dataset.cardStyle});
+    if(button.dataset.photoRatio)return updateCategoryCardSetting(block,{image_ratio:button.dataset.photoRatio});
     if(button.dataset.convert)return convertCategoryBlock(block,button.dataset.convert);
   });
 
