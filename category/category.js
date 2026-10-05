@@ -522,32 +522,6 @@ function enterCategoryBlockSelectionMode(blockId) {
   renderCategoryBlocks();
 }
 
-function categorySelectionEditTarget(row) {
-  return row?.querySelector(
-    '.category-block-input, .category-section-title-input, .category-column-editor, .category-media-caption, .category-photo-card-title, .category-photo-card-caption, .category-block-link-url'
-  )||null;
-}
-
-function editCategoryBlockFromSelection(blockId) {
-  selectedCategoryBlockIds.clear();
-  lastCategoryBlockSelectionId=null;
-  categoryBlockSelectionMode=false;
-  renderCategoryBlocks();
-
-  setTimeout(()=>{
-    const row=document.querySelector('[data-block-id="'+blockId+'"]');
-    row?.scrollIntoView({behavior:"smooth",block:"center"});
-    const target=categorySelectionEditTarget(row);
-    target?.focus();
-    if(target?.classList?.contains("category-block-input") && typeof placeCaretAtEnd==="function"){
-      placeCaretAtEnd(target);
-    }
-    if(!target){
-      row?.querySelector(".category-block-more")?.click();
-    }
-  },30);
-}
-
 function bindCategoryBlockSelectionGesture(row,block) {
   let holdTimer=null;
   let startX=0;
@@ -1339,7 +1313,6 @@ async function createMediaBlock(kind) {
   if(result.data?.[0])Object.assign(local,result.data[0]);
 
   renderCategoryBlocks();
-  renderCategoryAttachments();
   updateCategoryDocumentMeta();
   toast(kind==="gallery"?"Gallery added":isPhotoCard?"Photo card added":kind==="image"?"Image added":"File added");
 }
@@ -2200,14 +2173,7 @@ function renderCategoryBlocks() {
       const sideActions=document.createElement("div");
       sideActions.className="category-selection-actions";
       sideActions.innerHTML=
-        '<button type="button" class="category-selection-edit" aria-label="Edit this block" title="Edit"><i data-lucide="pencil"></i></button>'+
         '<button type="button" class="category-selection-delete danger" aria-label="Delete this block" title="Delete"><i data-lucide="trash-2"></i></button>';
-
-      sideActions.querySelector(".category-selection-edit").addEventListener("click",e=>{
-        e.preventDefault();
-        e.stopPropagation();
-        editCategoryBlockFromSelection(block.id);
-      });
 
       sideActions.querySelector(".category-selection-delete").addEventListener("click",async e=>{
         e.preventDefault();
@@ -2452,13 +2418,11 @@ function renderCategorySubpages() {
   const holder=document.getElementById("categorySubpages");
   const empty=document.getElementById("categorySubpagesEmpty");
   const title=document.getElementById("categorySubpagesTitle");
-  const files=document.querySelector(".category-page-files");
   if(!holder)return;
 
   const current=currentCategoryPage();
   const children=categoryPageChildren();
   if(title)title.textContent=current ? "Subpages in "+current.title : "Subpages";
-  if(files)files.classList.toggle("hidden",!!activeCategoryPageId);
 
   holder.innerHTML="";
 
@@ -2566,7 +2530,6 @@ function openCategory(category, options={}) {
   updateCategoryDocumentMeta();
   bindCategoryPageBackButton();
   renderCategorySubpages();
-  renderCategoryAttachments();
 
   migrateCategoryLegacyToBlocks(category).then(()=>{
     renderCategoryBlocks();
