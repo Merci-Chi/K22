@@ -704,6 +704,16 @@ function categoryListFieldIsEmpty(field) {
     .trim();
 }
 
+function placeCaretAtEnd(field) {
+  if(!field)return;
+  const range=document.createRange();
+  range.selectNodeContents(field);
+  range.collapse(false);
+  const selection=window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
 
 const signedMediaUrlCache=new Map();
 
