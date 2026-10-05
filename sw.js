@@ -1,4 +1,4 @@
-const CACHE_NAME = "k22-shell-v52";
+const CACHE_NAME = "k22-shell-v53";
 const APP_SHELL = [
   "./",
   "./index.html",
