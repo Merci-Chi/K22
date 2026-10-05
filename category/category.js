@@ -524,7 +524,7 @@ function enterCategoryBlockSelectionMode(blockId) {
 
 function categorySelectionEditTarget(row) {
   return row?.querySelector(
-    '.category-block-input, .category-section-title-input, .category-column-editor, .category-media-caption, .category-block-link-url'
+    '.category-block-input, .category-section-title-input, .category-column-editor, .category-media-caption, .category-photo-card-title, .category-photo-card-caption, .category-block-link-url'
   )||null;
 }
 
@@ -1280,10 +1280,13 @@ async function createMediaBlock(kind) {
     return;
   }
   const multiple=kind==="gallery";
+  const isPhotoCard=kind==="photo-card";
   const files=await chooseFiles(kind==="file"?"*/*":"image/*",multiple);
   if(!files.length)return;
 
-  const selected=kind==="gallery"?files.filter(f=>String(f.type||"").startsWith("image/")):files.slice(0,1);
+  const selected=kind==="gallery"
+    ? files.filter(f=>String(f.type||"").startsWith("image/"))
+    : files.slice(0,1);
   if(!selected.length){
     toast("Choose image files for a gallery",true);
     return;
@@ -1298,14 +1301,27 @@ async function createMediaBlock(kind) {
 
   const content=kind==="gallery"
     ? {attachment_ids:uploaded.map(x=>x.id),caption:""}
-    : kind==="image"
-      ? {attachment_id:uploaded[0].id,caption:""}
+    : (kind==="image" || isPhotoCard)
+      ? {
+          attachment_id:uploaded[0].id,
+          caption:"",
+          ...(isPhotoCard?{title:""}:{})
+        }
       : {attachment_id:uploaded[0].id};
+
+  const storedType=isPhotoCard?"image":kind;
+  const settings=isPhotoCard
+    ? {size:"small",presentation:"polaroid"}
+    : kind==="image"
+      ? {size:"medium"}
+      : kind==="gallery"
+        ? {columns:2}
+        : {};
 
   const rows=blocksForActiveCategory();
   const local={
-    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type:kind,
-    content,settings:kind==="image"?{size:"medium"}:kind==="gallery"?{columns:2}:{},
+    id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type:storedType,
+    content,settings,
     position:rows.length,created_at:new Date().toISOString(),updated_at:new Date().toISOString()
   };
 
@@ -1325,7 +1341,7 @@ async function createMediaBlock(kind) {
   renderCategoryBlocks();
   renderCategoryAttachments();
   updateCategoryDocumentMeta();
-  toast(kind==="gallery"?"Gallery added":kind==="image"?"Image added":"File added");
+  toast(kind==="gallery"?"Gallery added":isPhotoCard?"Photo card added":kind==="image"?"Image added":"File added");
 }
 
 async function hydrateMediaBlock(block,row) {
@@ -1358,7 +1374,41 @@ function mediaBlockField(block,content) {
   if(block.type==="image"){
     const file=attachmentById(content.attachment_id);
     const size=block.settings?.size||"medium";
+    const isPolaroid=block.settings?.presentation==="polaroid";
     wrap.classList.add("size-"+size);
+    if(isPolaroid)wrap.classList.add("category-photo-card");
+
+    if(isPolaroid){
+      wrap.innerHTML=`
+        <div class="category-photo-card-shell">
+          <div class="category-photo-card-photo">
+            <img class="category-media-image" alt="${esc(content.title||content.caption||file?.file_name||"Photo card")}">
+            <div class="category-media-loading"><i data-lucide="image"></i></div>
+          </div>
+          <div class="category-photo-card-copy">
+            <input class="category-photo-card-title" type="text" placeholder="Photo title" value="${esc(content.title||"")}">
+            <textarea class="category-photo-card-caption" rows="2" placeholder="Add a note...">${esc(content.caption||"")}</textarea>
+          </div>
+        </div>
+      `;
+
+      let timer;
+      const saveCard=()=>{
+        clearTimeout(timer);
+        timer=setTimeout(()=>{
+          content={
+            ...content,
+            title:wrap.querySelector(".category-photo-card-title")?.value||"",
+            caption:wrap.querySelector(".category-photo-card-caption")?.value||""
+          };
+          updateCategoryBlock(block,{content});
+        },300);
+      };
+      wrap.querySelector(".category-photo-card-title")?.addEventListener("input",saveCard);
+      wrap.querySelector(".category-photo-card-caption")?.addEventListener("input",saveCard);
+      return wrap;
+    }
+
     wrap.innerHTML=`
       <div class="category-media-frame">
         <img class="category-media-image" alt="${esc(content.caption||file?.file_name||"Category image")}">
