@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="css.css" />
-<link rel="manifest" href="manifest.webmanifest" />
-<link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../css.css" />
+<link rel="manifest" href="../manifest.webmanifest" />
+<link rel="icon" href="../icon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#292623" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,11 +18,11 @@
     <aside class="sidebar">
       <div class="brand-mark"><i data-lucide="cat"></i></div>
       <nav class="side-nav">
-        <a class="nav-item active" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
-        <a class="nav-item" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
-        <a class="nav-item" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
-        <a class="nav-item" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
-        <a class="nav-item" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+        <a class="nav-item active" href="../home/home.html"><i data-lucide="house"></i><span>Home</span></a>
+        <a class="nav-item" href="../calendar/calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+        <a class="nav-item" href="../today/today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+        <a class="nav-item" href="../notes/notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+        <a class="nav-item" href="../categories/categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
       </nav>
     </aside>
 
@@ -44,22 +44,22 @@
       </header>
 
       <section class="smart-home-strip">
-        <a class="smart-stat danger" href="today.html" id="homeOverdueCard">
+        <a class="smart-stat danger" href="../today/today.html" id="homeOverdueCard">
           <span class="smart-stat-icon"><i data-lucide="triangle-alert"></i></span>
           <span><small>Overdue</small><b id="homeOverdueCount">0</b><em id="homeOverdueText">Nothing overdue</em></span>
         </a>
 
-        <a class="smart-stat blue" href="calendar.html" id="homeNextEventCard">
+        <a class="smart-stat blue" href="../calendar/calendar.html" id="homeNextEventCard">
           <span class="smart-stat-icon"><i data-lucide="calendar-clock"></i></span>
           <span><small>Next Event</small><b id="homeNextEventTitle">No events</b><em id="homeNextEventTime">Calendar is clear</em></span>
         </a>
 
-        <a class="smart-stat green" href="today.html" id="homeRoutineCard">
+        <a class="smart-stat green" href="../today/today.html" id="homeRoutineCard">
           <span class="smart-stat-icon"><i data-lucide="repeat-2"></i></span>
           <span><small>Routine</small><b id="homeRoutineProgress">0 / 0</b><em id="homeRoutineText">Nothing scheduled</em></span>
         </a>
 
-        <a class="smart-stat gold" href="today.html" id="homePriorityCard">
+        <a class="smart-stat gold" href="../today/today.html" id="homePriorityCard">
           <span class="smart-stat-icon"><i data-lucide="flag"></i></span>
           <span><small>Priority</small><b id="homePriorityTitle">All clear</b><em id="homePriorityText">No high-priority tasks</em></span>
         </a>
@@ -81,7 +81,7 @@
         <article class="panel dashboard-calendar-panel">
           <div class="panel-title-row">
             <h2><i data-lucide="calendar-days"></i> October 2026</h2>
-            <a class="link-btn" href="calendar.html">View <i data-lucide="arrow-right"></i></a>
+            <a class="link-btn" href="../calendar/calendar.html">View <i data-lucide="arrow-right"></i></a>
           </div>
 
           <div class="calendar-weekdays">
@@ -133,7 +133,7 @@
         <article class="category panel">
           <div class="category-header">
             <h2><i data-lucide="user-round"></i> Personal</h2>
-            <a href="categories.html"><i data-lucide="chevron-right"></i></a>
+            <a href="../categories/categories.html"><i data-lucide="chevron-right"></i></a>
           </div>
           <div class="square-grid">
             <button class="square-card pink" data-card="Love"><i data-lucide="heart"></i><b>Love</b></button>
@@ -148,7 +148,7 @@
         <article class="category panel">
           <div class="category-header">
             <h2><i data-lucide="house"></i> Home &amp; Lifestyle</h2>
-            <a href="categories.html"><i data-lucide="chevron-right"></i></a>
+            <a href="../categories/categories.html"><i data-lucide="chevron-right"></i></a>
           </div>
           <div class="square-grid">
             <button class="square-card pink" data-card="Cooking"><i data-lucide="cooking-pot"></i><b>Cooking</b></button>
@@ -163,7 +163,7 @@
         <article class="category panel">
           <div class="category-header">
             <h2><i data-lucide="briefcase-business"></i> Work &amp; Money</h2>
-            <a href="categories.html"><i data-lucide="chevron-right"></i></a>
+            <a href="../categories/categories.html"><i data-lucide="chevron-right"></i></a>
           </div>
           <div class="square-grid">
             <button class="square-card blue" data-card="Business"><i data-lucide="laptop"></i><b>Business</b></button>
@@ -178,7 +178,7 @@
         <article class="category panel">
           <div class="category-header">
             <h2><i data-lucide="lightbulb"></i> Ideas</h2>
-            <a href="categories.html"><i data-lucide="chevron-right"></i></a>
+            <a href="../categories/categories.html"><i data-lucide="chevron-right"></i></a>
           </div>
           <div class="square-grid">
             <button class="square-card pink" data-card="Ideas"><i data-lucide="lightbulb"></i><b>Ideas</b></button>
@@ -193,11 +193,11 @@
     </main>
 
     <nav class="mobile-nav">
-      <a class="active" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
-      <a href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
-      <a href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
-      <a href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
-      <a href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+      <a class="active" href="../home/home.html"><i data-lucide="house"></i><span>Home</span></a>
+      <a href="../calendar/calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+      <a href="../today/today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+      <a href="../notes/notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+      <a href="../categories/categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
     </nav>
   </div>
 
@@ -265,11 +265,11 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/calendar/calendar.js"></script>
-  <script src="js/today/today.js"></script>
-  <script src="js/home/home.js"></script>
-  <script src="js/categories/categories.js"></script>
-  <script src="js/shared/search.js"></script>
-  <script src="js.js"></script>
+  <script src="../calendar/calendar.js"></script>
+  <script src="../today/today.js"></script>
+  <script src="home.js"></script>
+  <script src="../categories/categories.js"></script>
+  <script src="../shared/search.js"></script>
+  <script src="../js.js"></script>
 </body>
 </html>
