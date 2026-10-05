@@ -18,6 +18,7 @@ let state = {
   notes: [],
   categoryItems: [],
   categoryNotes: [],
+  categoryPages: [],
   categoryBlocks: [],
   routine: [],
   attachments: [],
@@ -430,12 +431,13 @@ async function loadAll() {
   if (!currentUser) return;
   setSyncStatus("Syncing...");
   try {
-    const [tasks, events, notes, categoryItems, categoryNotes, categoryBlocks, routine, attachments, settingsRows] = await Promise.all([
+    const [tasks, events, notes, categoryItems, categoryNotes, categoryPages, categoryBlocks, routine, attachments, settingsRows] = await Promise.all([
       safe(db.from("tasks").select("*").order("position").order("created_at")),
       safe(db.from("calendar_events").select("*").order("event_date").order("event_time")),
       safe(db.from("notes").select("*").order("updated_at", { ascending: false })),
       safe(db.from("category_items").select("*").order("position").order("created_at")),
       safe(db.from("category_notes").select("*")),
+      safeOptional(db.from("category_pages").select("*").order("position").order("created_at")),
       loadCategoryBlocksSafe(),
       safe(db.from("routine_items").select("*").order("position")),
       safeOptional(db.from("attachments").select("*").order("created_at", { ascending: false })),
@@ -447,6 +449,7 @@ async function loadAll() {
     state.notes = notes || [];
     state.categoryItems = categoryItems || [];
     state.categoryNotes = categoryNotes || [];
+    state.categoryPages = categoryPages || [];
     state.categoryBlocks = categoryBlocks || [];
     state.routine = routine || [];
     state.attachments = attachments || [];
@@ -1458,6 +1461,7 @@ function startRealtime() {
     .on("postgres_changes",{event:"*",schema:"public",table:"notes"},requestGeneralRealtimeRefresh)
     .on("postgres_changes",{event:"*",schema:"public",table:"category_items"},requestGeneralRealtimeRefresh)
     .on("postgres_changes",{event:"*",schema:"public",table:"category_notes"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"category_pages"},requestGeneralRealtimeRefresh)
     .on("postgres_changes",{event:"*",schema:"public",table:"category_blocks"},handleCategoryBlockRealtime)
     .on("postgres_changes",{event:"*",schema:"public",table:"routine_items"},requestGeneralRealtimeRefresh)
     .on("postgres_changes",{event:"*",schema:"public",table:"attachments"},requestGeneralRealtimeRefresh)
