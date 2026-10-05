@@ -1570,9 +1570,12 @@ function mediaBlockField(block,content) {
                     x.type==="image"
                   )
                 : null;
-              return normalizeBlockContent(insideImage||{}).caption||content.caption||"Open to add content";
+              return normalizeBlockContent(insideImage||{}).caption||content.caption||(page?"Open to view content":"No content yet");
             })())}</div>
-            <div class="category-card-open-hint"><span>Open card</span><i data-lucide="chevron-right"></i></div>
+            <div class="category-card-open-hint">
+              <span>${categoryCardContentPage(block)?"Open card":"Add content"}</span>
+              <i data-lucide="${categoryCardContentPage(block)?"chevron-right":"plus"}"></i>
+            </div>
           </div>
         </div>
       `;
@@ -1875,12 +1878,15 @@ function textCardBlockField(block,content) {
     ? (state.categoryBlocks||[]).filter(x=>x.category===activeCategory && (x.page_id||null)===page.id)
     : [];
   const firstText=pageBlocks.map(x=>normalizeBlockContent(x).text||normalizeBlockContent(x).caption||"").find(Boolean);
-  const preview=firstText||content.text||"Open to add content";
+  const preview=firstText||content.text||(page?"Open to view content":"No content yet");
 
   wrap.innerHTML=`
     <div class="category-text-card-title">${esc(title)}</div>
     <div class="category-text-card-body">${esc(preview)}</div>
-    <div class="category-card-open-hint"><span>Open card</span><i data-lucide="chevron-right"></i></div>
+    <div class="category-card-open-hint">
+      <span>${page?"Open card":"Add content"}</span>
+      <i data-lucide="${page?"chevron-right":"plus"}"></i>
+    </div>
   `;
   return wrap;
 }
@@ -2309,6 +2315,7 @@ function categoryBlockActionMenu(block,index,total) {
     : "";
 
   const isCard=isCategoryCardBlock(block);
+  const hasCardContent=isCard && !!categoryCardContentPage(block);
   const cardSize=isCard?categoryCardSize(block):null;
   const cardStyle=isCard?categoryCardStyle(block):null;
   const cardSizeItems=isCard
@@ -2351,7 +2358,7 @@ function categoryBlockActionMenu(block,index,total) {
     <button type="button" data-action="up" ${index===0?"disabled":""}><i data-lucide="arrow-up"></i><span>Move up</span></button>
     <button type="button" data-action="down" ${index===total-1?"disabled":""}><i data-lucide="arrow-down"></i><span>Move down</span></button>
     <button type="button" data-action="duplicate"><i data-lucide="copy"></i><span>Duplicate</span></button>
-    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Content</div><button type="button" data-action="content"><i data-lucide="chevron-right"></i><span>Content</span></button><div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>'+(photoRatioItems?'<div class="category-block-convert-label">Photo shape</div><div class="category-block-card-options">'+photoRatioItems+'</div>':'') : ""}
+    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Content</div><button type="button" data-action="'+(hasCardContent?'content':'add-content')+'"><i data-lucide="'+(hasCardContent?'chevron-right':'plus')+'"></i><span>'+(hasCardContent?'Content':'Add content')+'</span></button><div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>'+(photoRatioItems?'<div class="category-block-convert-label">Photo shape</div><div class="category-block-card-options">'+photoRatioItems+'</div>':'') : ""}
     ${convertItems ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Turn into</div><div class="category-block-convert-list">'+convertItems+'</div>' : ""}
     <div class="category-block-menu-separator"></div>
     <button type="button" data-action="delete" class="danger"><i data-lucide="trash-2"></i><span>Delete</span></button>
@@ -2365,7 +2372,12 @@ function categoryBlockActionMenu(block,index,total) {
     if(button.dataset.action==="up")return moveCategoryBlock(block,-1);
     if(button.dataset.action==="down")return moveCategoryBlock(block,1);
     if(button.dataset.action==="duplicate")return duplicateCategoryBlock(block);
-    if(button.dataset.action==="content")return ensureCategoryCardPage(block,{open:true});
+    if(button.dataset.action==="add-content")return ensureCategoryCardPage(block,{open:true});
+    if(button.dataset.action==="content"){
+      const page=categoryCardContentPage(block);
+      if(page)return openCategory(activeCategory,{pageId:page.id});
+      return;
+    }
     if(button.dataset.action==="delete"){
       if(confirm("Delete this block?"))return deleteCategoryBlock(block);
       return;
@@ -2535,12 +2547,13 @@ function renderCategoryBlocks() {
 
     bindCategoryBlockSelectionGesture(row,block);
 
-    if(isCardBlock){
+    if(isCardBlock && categoryCardContentPage(block)){
       row.classList.add("category-card-clickable");
       row.addEventListener("click",e=>{
         if(categoryBlockSelectionMode)return;
         if(e.target.closest(".category-block-actions,.category-selection-actions,button,a,input,textarea,select,[contenteditable=true]"))return;
-        ensureCategoryCardPage(block,{open:true});
+        const page=categoryCardContentPage(block);
+        if(page)openCategory(activeCategory,{pageId:page.id});
       });
     }
 
