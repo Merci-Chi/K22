@@ -175,9 +175,6 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 }
 
 
-}
-
-
 @media(max-width:1100px) and (min-width:821px){
   .category-row{gap:7px}
   .category-row .category{padding:8px}
@@ -201,9 +198,6 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   display:grid;place-items:center
 }
 .modal-close svg{width:20px;height:20px}
-.category-modal-grid{
-  display:grid;grid-template-columns:1.05fr .95fr;gap:16px;margin-top:18px
-}
 .category-section-title{
   display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px
 }
@@ -213,14 +207,9 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 }
 .category-section-title h4 svg{width:19px;height:19px}
 .category-section-title span{font-size:11px;color:#888}
-.category-quick-add{
-  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:8px;
-  background:#fff;border:1px solid rgba(0,0,0,.08);
-  border-radius:14px;padding:7px 8px 7px 11px
-}
 
 /* Functional interaction polish */
-.modal-open{overflow:hidden}.task-row{justify-content:space-between}.task-row label{display:flex;align-items:center;gap:12px;min-width:0;flex:1}.task-delete,.agenda-delete{border:0;background:transparent;color:#888;border-radius:8px;padding:5px}.task-delete:hover,.agenda-delete:hover:hover{background:rgba(0,0,0,.05);color:#333}.task-delete svg,.agenda-delete svg svg{width:15px;height:15px}.empty-inline{padding:16px 4px;color:#8a8a8a;font-size:13px;text-align:center}.search-hidden{display:none!important}.selected-day{outline:2px solid #292623!important;outline-offset:-2px}.day-cell{overflow:hidden}.day-cell .event-pill{display:block;position:static;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-item{position:relative}.agenda-copy{min-width:0;flex:1}.agenda-delete{margin-left:auto;flex:0 0 auto}.app-toast{position:fixed;right:24px;bottom:24px;z-index:100;background:#292623;color:#fff;padding:11px 16px;border-radius:13px;box-shadow:0 12px 34px rgba(0,0,0,.2);font-size:13px;opacity:0;transform:translateY(8px);pointer-events:none;transition:.18s ease}.app-toast.show{opacity:1;transform:translateY(0)}.profile-popover{position:fixed;right:24px;top:88px;z-index:90;width:220px;background:#fffdfb;border:1px solid rgba(0,0,0,.08);border-radius:17px;padding:14px;box-shadow:0 18px 55px rgba(0,0,0,.16);display:flex;flex-direction:column;gap:7px}.profile-popover>b{font-family:Georgia,serif;font-size:20px}.profile-popover>small{color:#888;margin-bottom:5px}.profile-popover a,.profile-popover button{border:0;background:#f6f1ec;border-radius:11px;padding:9px 10px;display:flex;align-items:center;gap:7px;text-align:left;color:#222}.profile-popover svg{width:16px;height:16px}@media(max-width:820px){.app-toast{left:14px;right:14px;bottom:90px;text-align:center}.profile-popover{right:14px;top:74px}}
+.modal-open{overflow:hidden}.task-row{justify-content:space-between}.task-row label{display:flex;align-items:center;gap:12px;min-width:0;flex:1}.task-delete,.agenda-delete{border:0;background:transparent;color:#888;border-radius:8px;padding:5px}.task-delete:hover,.agenda-delete:hover{background:rgba(0,0,0,.05);color:#333}.task-delete svg,.agenda-delete svg{width:15px;height:15px}.empty-inline{padding:16px 4px;color:#8a8a8a;font-size:13px;text-align:center}.search-hidden{display:none!important}.selected-day{outline:2px solid #292623!important;outline-offset:-2px}.day-cell{overflow:hidden}.day-cell .event-pill{display:block;position:static;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.agenda-item{position:relative}.agenda-copy{min-width:0;flex:1}.agenda-delete{margin-left:auto;flex:0 0 auto}.app-toast{position:fixed;right:24px;bottom:24px;z-index:100;background:#292623;color:#fff;padding:11px 16px;border-radius:13px;box-shadow:0 12px 34px rgba(0,0,0,.2);font-size:13px;opacity:0;transform:translateY(8px);pointer-events:none;transition:.18s ease}.app-toast.show{opacity:1;transform:translateY(0)}.profile-popover{position:fixed;right:24px;top:88px;z-index:90;width:220px;background:#fffdfb;border:1px solid rgba(0,0,0,.08);border-radius:17px;padding:14px;box-shadow:0 18px 55px rgba(0,0,0,.16);display:flex;flex-direction:column;gap:7px}.profile-popover>b{font-family:Georgia,serif;font-size:20px}.profile-popover>small{color:#888;margin-bottom:5px}.profile-popover a,.profile-popover button{border:0;background:#f6f1ec;border-radius:11px;padding:9px 10px;display:flex;align-items:center;gap:7px;text-align:left;color:#222}.profile-popover svg{width:16px;height:16px}@media(max-width:820px){.app-toast{left:14px;right:14px;bottom:90px;text-align:center}.profile-popover{right:14px;top:74px}}
 
 
 /* Supabase auth + sync UI */
@@ -1069,9 +1058,6 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   }
   .category-page-meta{
     gap:9px 12px;
-  }
-  .category-quick-add{
-    grid-template-columns:auto minmax(0,1fr) auto;
   }
 }
 
