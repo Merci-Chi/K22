@@ -1,5 +1,5 @@
 // K22 — Main / shared app core
-// Keep this file loaded by every HTML page. It loads the separated page files.
+// Keep this shared core loaded by every K22 app page.
 
 const SUPABASE_URL = "https://gifizpabjfrymfobqore.supabase.co";
 const SUPABASE_KEY = "sb_publishable_xlUJnJCGhWi6s1zaF-gY2w_9gEeLZm3";
@@ -1496,7 +1496,6 @@ async function handleSession(session) {
 
 document.addEventListener("keydown",e=>{
   if(e.key==="Escape"){
-    if(typeof closeCategory==="function")closeCategory();
     if(typeof closeEventModal==="function")closeEventModal();
     if(typeof closeRoutineModal==="function")closeRoutineModal();
     if(typeof closeTaskModal==="function")closeTaskModal();
