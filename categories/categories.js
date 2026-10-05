@@ -1,7 +1,6 @@
 // K22 — Categories index/shared category metadata
 
 let activeCategory = "";
-let editingCategoryItemId = null;
 
 const CATEGORY_PAGE_META = {
   "Love": { icon:"heart", tone:"pink", description:"Relationships, memories, plans, and the people close to you." },
