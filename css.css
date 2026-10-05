@@ -2740,6 +2740,10 @@ body.category-block-picker-open{
   grid-column:span 2;
 }
 
+.category-card-grid>.card-size-wide{
+  grid-column:span 3;
+}
+
 .category-card-grid>.card-size-full{
   grid-column:1 / -1;
 }
@@ -2812,6 +2816,22 @@ body.category-block-picker-open{
 }
 
 /* Photo card styles */
+.category-photo-card.card-style-regular .category-photo-card-shell{
+  background:#fff;
+  padding:0;
+  overflow:hidden;
+  border-radius:16px;
+  box-shadow:0 6px 18px rgba(41,38,35,.055);
+}
+
+.category-photo-card.card-style-regular .category-photo-card-photo{
+  border-radius:0;
+}
+
+.category-photo-card.card-style-regular .category-photo-card-copy{
+  padding:11px 12px 13px;
+}
+
 .category-photo-card.card-style-polaroid .category-photo-card-shell{
   background:#fff;
   padding:11px 11px 14px;
@@ -2844,6 +2864,18 @@ body.category-block-picker-open{
   padding:8px 1px 0;
 }
 
+/* Photo-card crop / aspect choices */
+.category-photo-card.photo-ratio-square .category-photo-card-photo{aspect-ratio:1 / 1;}
+.category-photo-card.photo-ratio-portrait .category-photo-card-photo{aspect-ratio:4 / 5;}
+.category-photo-card.photo-ratio-landscape .category-photo-card-photo{aspect-ratio:4 / 3;}
+.category-photo-card.photo-ratio-wide .category-photo-card-photo{aspect-ratio:16 / 9;}
+.category-photo-card.photo-ratio-original .category-photo-card-photo{aspect-ratio:auto;}
+.category-photo-card.photo-ratio-original .category-photo-card-photo .category-media-image{
+  height:auto;
+  max-height:none;
+  object-fit:contain;
+}
+
 @media(max-width:900px){
   .category-card-grid{
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -2855,6 +2887,7 @@ body.category-block-picker-open{
   }
 
   .category-card-grid>.card-size-medium,
+  .category-card-grid>.card-size-wide,
   .category-card-grid>.card-size-full{
     grid-column:1 / -1;
   }
@@ -2876,6 +2909,7 @@ body.category-block-picker-open{
   }
 
   .category-card-grid>.card-size-medium,
+  .category-card-grid>.card-size-wide,
   .category-card-grid>.card-size-full{
     grid-column:1 / -1;
   }
