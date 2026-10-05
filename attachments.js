@@ -1,5 +1,8 @@
 // K22 — Shared attachments for Notes + Category pages
 
+const ATTACHMENT_BUCKET = "k22-files";
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024;
+
 function attachmentOwnerKey(ownerType) {
   if (ownerType === "note") return activeNoteId || null;
   if (ownerType === "category") return activeCategory || null;
