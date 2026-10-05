@@ -3,6 +3,7 @@
 let activeCategoryPageId=null;
 const selectedCategoryBlockIds=new Set();
 let lastCategoryBlockSelectionId=null;
+let categoryBlockSelectionMode=false;
 
 function categoryPageRecord(id) {
   return (state.categoryPages||[]).find(page=>page.id===id)||null;
@@ -486,32 +487,131 @@ function selectedCategoryBlocks() {
 function clearCategoryBlockSelection(render=true) {
   selectedCategoryBlockIds.clear();
   lastCategoryBlockSelectionId=null;
+  categoryBlockSelectionMode=false;
   if(render)renderCategoryBlocks();
   else renderCategoryBulkToolbar();
 }
 
-function toggleCategoryBlockSelection(blockId,range=false) {
-  const rows=blocksForActiveCategory();
+function setCategoryBlockSelected(blockId,selected=true) {
+  if(selected)selectedCategoryBlockIds.add(blockId);
+  else selectedCategoryBlockIds.delete(blockId);
 
-  if(range && lastCategoryBlockSelectionId){
-    const start=rows.findIndex(x=>x.id===lastCategoryBlockSelectionId);
-    const end=rows.findIndex(x=>x.id===blockId);
-    if(start>=0 && end>=0){
-      const lo=Math.min(start,end);
-      const hi=Math.max(start,end);
-      for(let i=lo;i<=hi;i++)selectedCategoryBlockIds.add(rows[i].id);
-    }else{
-      selectedCategoryBlockIds.add(blockId);
-    }
-  }else if(selectedCategoryBlockIds.has(blockId)){
-    selectedCategoryBlockIds.delete(blockId);
+  if(!selectedCategoryBlockIds.size){
+    categoryBlockSelectionMode=false;
+    lastCategoryBlockSelectionId=null;
   }else{
-    selectedCategoryBlockIds.add(blockId);
+    categoryBlockSelectionMode=true;
+    lastCategoryBlockSelectionId=blockId;
   }
+}
 
-  lastCategoryBlockSelectionId=blockId;
+function toggleCategoryBlockSelection(blockId) {
+  setCategoryBlockSelected(blockId,!selectedCategoryBlockIds.has(blockId));
   renderCategoryBlocks();
 }
+
+function enterCategoryBlockSelectionMode(blockId) {
+  categoryBlockSelectionMode=true;
+  selectedCategoryBlockIds.add(blockId);
+  lastCategoryBlockSelectionId=blockId;
+
+  if(navigator.vibrate){
+    try{navigator.vibrate(18);}catch{}
+  }
+
+  renderCategoryBlocks();
+}
+
+function categorySelectionEditTarget(row) {
+  return row?.querySelector(
+    '.category-block-input, .category-section-title-input, .category-column-editor, .category-media-caption, .category-block-link-url'
+  )||null;
+}
+
+function editCategoryBlockFromSelection(blockId) {
+  selectedCategoryBlockIds.clear();
+  lastCategoryBlockSelectionId=null;
+  categoryBlockSelectionMode=false;
+  renderCategoryBlocks();
+
+  setTimeout(()=>{
+    const row=document.querySelector('[data-block-id="'+blockId+'"]');
+    row?.scrollIntoView({behavior:"smooth",block:"center"});
+    const target=categorySelectionEditTarget(row);
+    target?.focus();
+    if(target?.classList?.contains("category-block-input") && typeof placeCaretAtEnd==="function"){
+      placeCaretAtEnd(target);
+    }
+    if(!target){
+      row?.querySelector(".category-block-more")?.click();
+    }
+  },30);
+}
+
+function bindCategoryBlockSelectionGesture(row,block) {
+  let holdTimer=null;
+  let startX=0;
+  let startY=0;
+  let longPressTriggered=false;
+
+  const cancelHold=()=>{
+    if(holdTimer){
+      clearTimeout(holdTimer);
+      holdTimer=null;
+    }
+  };
+
+  row.addEventListener("pointerdown",e=>{
+    if(categoryBlockSelectionMode)return;
+    if(e.button!==undefined && e.button!==0)return;
+    if(e.target.closest(".category-block-actions,.category-selection-actions,a,button,select"))return;
+
+    startX=e.clientX;
+    startY=e.clientY;
+    longPressTriggered=false;
+
+    holdTimer=setTimeout(()=>{
+      holdTimer=null;
+      longPressTriggered=true;
+      row.dataset.longPressTriggered="1";
+      window.getSelection()?.removeAllRanges?.();
+      enterCategoryBlockSelectionMode(block.id);
+    },480);
+  });
+
+  row.addEventListener("pointermove",e=>{
+    if(!holdTimer)return;
+    if(Math.abs(e.clientX-startX)>10 || Math.abs(e.clientY-startY)>10)cancelHold();
+  });
+
+  row.addEventListener("pointerup",cancelHold);
+  row.addEventListener("pointercancel",cancelHold);
+  row.addEventListener("pointerleave",cancelHold);
+
+  row.addEventListener("click",e=>{
+    if(row.dataset.longPressTriggered==="1" || longPressTriggered){
+      row.dataset.longPressTriggered="";
+      longPressTriggered=false;
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+
+    if(!categoryBlockSelectionMode)return;
+    if(e.target.closest(".category-selection-actions,.category-block-actions,.category-block-action-menu"))return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    toggleCategoryBlockSelection(block.id);
+  });
+
+  row.addEventListener("contextmenu",e=>{
+    if(categoryBlockSelectionMode || row.dataset.longPressTriggered==="1"){
+      e.preventDefault();
+    }
+  });
+}
+
 
 function convertCategoryContentForType(block,nextType) {
   const nextContent={...normalizeBlockContent(block)};
@@ -568,6 +668,7 @@ async function bulkDeleteCategoryBlocks() {
   setActiveCategoryPageRows(remaining);
   selectedCategoryBlockIds.clear();
   lastCategoryBlockSelectionId=null;
+  categoryBlockSelectionMode=false;
   saveOfflineCache();
   renderCategoryBlocks();
 
@@ -618,6 +719,7 @@ async function bulkDuplicateCategoryBlocks() {
   setActiveCategoryPageRows(nextRows);
   selectedCategoryBlockIds.clear();
   clones.forEach(clone=>selectedCategoryBlockIds.add(clone.id));
+  categoryBlockSelectionMode=clones.length>0;
   lastCategoryBlockSelectionId=clones.at(-1)?.id||null;
   saveOfflineCache();
   renderCategoryBlocks();
@@ -658,6 +760,7 @@ function renderCategoryBulkToolbar() {
 
   document.getElementById("categoryBulkSelectAll")?.addEventListener("click",()=>{
     blocksForActiveCategory().forEach(block=>selectedCategoryBlockIds.add(block.id));
+    categoryBlockSelectionMode=selectedCategoryBlockIds.size>0;
     lastCategoryBlockSelectionId=blocksForActiveCategory().at(-1)?.id||null;
     renderCategoryBlocks();
   });
@@ -1077,6 +1180,7 @@ async function deleteCategoryBlock(block) {
   state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==block.id);
   selectedCategoryBlockIds.delete(block.id);
   if(lastCategoryBlockSelectionId===block.id)lastCategoryBlockSelectionId=null;
+  if(!selectedCategoryBlockIds.size)categoryBlockSelectionMode=false;
   saveOfflineCache();
   renderCategoryBlocks();
 
@@ -2015,29 +2119,54 @@ function renderCategoryBlocks() {
     const selected=selectedCategoryBlockIds.has(block.id);
     row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(selected?" selected":"")+(parentSection?" in-section section-style-"+sectionStyle:"");
     row.dataset.blockId=block.id;
-    row.draggable=true;
+    row.draggable=!categoryBlockSelectionMode;
 
     const rail=document.createElement("div");
     rail.className="category-block-rail category-block-actions";
     rail.innerHTML=
-      '<button type="button" class="category-block-select" aria-label="'+(selected?"Deselect":"Select")+' block" aria-pressed="'+selected+'" title="Select block"><i data-lucide="'+(selected?"check":"circle")+'"></i></button>'+
-      '<button type="button" class="category-block-drag" aria-label="Drag block" title="Drag to reorder"><i data-lucide="grip-vertical"></i></button>'+
-      '<button type="button" class="category-block-more" aria-label="Block options"><i data-lucide="ellipsis"></i></button>';
+      (categoryBlockSelectionMode
+        ? '<span class="category-block-select-state" aria-hidden="true"><i data-lucide="'+(selected?"check-circle-2":"circle")+'"></i></span>'
+        : '<button type="button" class="category-block-drag" aria-label="Drag block" title="Drag to reorder"><i data-lucide="grip-vertical"></i></button>')+
+      '<button type="button" class="category-block-more'+(categoryBlockSelectionMode?" hidden":"")+'" aria-label="Block options"><i data-lucide="ellipsis"></i></button>';
 
     const actionMenu=categoryBlockActionMenu(block,index,rows.length);
     rail.appendChild(actionMenu);
 
     const field=categoryBlockField(block,content);
+    if(categoryBlockSelectionMode){
+      field.classList.add("selection-locked");
+      field.querySelectorAll?.("[contenteditable]").forEach(el=>el.setAttribute("contenteditable","false"));
+      if(field.matches?.("[contenteditable]"))field.setAttribute("contenteditable","false");
+      field.querySelectorAll?.("input,textarea,select,button,a").forEach(el=>el.setAttribute("tabindex","-1"));
+    }
     row.appendChild(rail);
     row.appendChild(field);
 
-    rail.querySelector(".category-block-select").addEventListener("click",e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      toggleCategoryBlockSelection(block.id,e.shiftKey);
-    });
+    if(categoryBlockSelectionMode && selected){
+      const sideActions=document.createElement("div");
+      sideActions.className="category-selection-actions";
+      sideActions.innerHTML=
+        '<button type="button" class="category-selection-edit" aria-label="Edit this block" title="Edit"><i data-lucide="pencil"></i></button>'+
+        '<button type="button" class="category-selection-delete danger" aria-label="Delete this block" title="Delete"><i data-lucide="trash-2"></i></button>';
 
-    rail.querySelector(".category-block-more").addEventListener("click",e=>{
+      sideActions.querySelector(".category-selection-edit").addEventListener("click",e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        editCategoryBlockFromSelection(block.id);
+      });
+
+      sideActions.querySelector(".category-selection-delete").addEventListener("click",async e=>{
+        e.preventDefault();
+        e.stopPropagation();
+        if(confirm("Delete this block?"))await deleteCategoryBlock(block);
+      });
+
+      row.appendChild(sideActions);
+    }
+
+    bindCategoryBlockSelectionGesture(row,block);
+
+    rail.querySelector(".category-block-more")?.addEventListener("click",e=>{
       e.stopPropagation();
       const wasHidden=actionMenu.classList.contains("hidden");
       closeCategoryBlockMenus(actionMenu);
@@ -2046,7 +2175,7 @@ function renderCategoryBlocks() {
     });
 
     row.addEventListener("dragstart",e=>{
-      if(window.matchMedia("(max-width: 650px)").matches){
+      if(categoryBlockSelectionMode || window.matchMedia("(max-width: 650px)").matches){
         e.preventDefault();
         return;
       }
@@ -2356,6 +2485,7 @@ function openCategory(category, options={}) {
   if(previousCategory!==activeCategory || previousPageId!==(activeCategoryPageId||null)){
     selectedCategoryBlockIds.clear();
     lastCategoryBlockSelectionId=null;
+    categoryBlockSelectionMode=false;
   }
 
   const wantedUrl=categoryPageUrl(category,activeCategoryPageId);
@@ -2401,7 +2531,7 @@ function bindCategoryEscapePolish(){
   categoryEscapePolishBound=true;
   document.addEventListener("keydown",e=>{
     if(document.body.dataset.page!=="category"||e.key!=="Escape")return;
-    if(selectedCategoryBlockIds.size){
+    if(categoryBlockSelectionMode || selectedCategoryBlockIds.size){
       clearCategoryBlockSelection();
       return;
     }
