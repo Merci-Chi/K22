@@ -131,17 +131,6 @@ function buildUniversalSearchResults(query) {
     }
   });
 
-  state.categoryItems.forEach(item=>{
-    const details=Object.values(item.details||{}).join(" ");
-    const hay=[item.category,item.text,details].filter(Boolean).join(" ").toLowerCase();
-    if(hay.includes(q)){
-      results.push({
-        type:item.category,icon:"folder-open",title:item.text,
-        detail:"Legacy category item",page:"category.html",action:"category",id:item.id,category:item.category
-      });
-    }
-  });
-
   (state.categoryPages||[]).forEach(page=>{
     const path=searchCategoryPagePath(page.id);
     const hay=[page.category,page.title,...path].filter(Boolean).join(" ").toLowerCase();
