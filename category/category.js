@@ -5,7 +5,7 @@ function setupCategoryPage() {
   const params=new URLSearchParams(location.search);
   const requested=params.get("name");
   if(!requested || !CATEGORY_PAGE_META[requested]){
-    location.replace("categories.html");
+    location.replace("../categories/categories.html");
     return;
   }
   openCategory(requested,{replaceUrl:true});
@@ -1656,7 +1656,7 @@ window.addEventListener("popstate",()=>{
 
 function closeCategory() {
   if(document.body.dataset.page==="category"){
-    location.href="categories.html";
+    location.href="../categories/categories.html";
     return;
   }
   document.getElementById("modalBackdrop")?.classList.add("hidden");
