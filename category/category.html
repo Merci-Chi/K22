@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="css.css" />
-  <link rel="manifest" href="manifest.webmanifest" />
-  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="../css.css" />
+  <link rel="manifest" href="../manifest.webmanifest" />
+  <link rel="icon" href="../icon.svg" type="image/svg+xml" />
   <meta name="theme-color" content="#292623" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -18,18 +18,18 @@
     <aside class="sidebar">
       <div class="brand-mark"><i data-lucide="cat"></i></div>
       <nav class="side-nav">
-        <a class="nav-item" href="index.html"><i data-lucide="house"></i><span>Home</span></a>
-        <a class="nav-item" href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
-        <a class="nav-item" href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
-        <a class="nav-item" href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
-        <a class="nav-item active" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+        <a class="nav-item" href="../home/home.html"><i data-lucide="house"></i><span>Home</span></a>
+        <a class="nav-item" href="../calendar/calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+        <a class="nav-item" href="../today/today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+        <a class="nav-item" href="../notes/notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+        <a class="nav-item active" href="../categories/categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
       </nav>
     </aside>
 
     <main class="main-content category-document-page">
       <header class="topbar category-page-topbar">
         <div class="category-page-nav">
-          <a class="category-back-btn" href="categories.html"><i data-lucide="arrow-left"></i><span>Categories</span></a>
+          <a class="category-back-btn" href="../categories/categories.html"><i data-lucide="arrow-left"></i><span>Categories</span></a>
         </div>
         <div class="top-actions">
           <label class="search-wrap">
@@ -135,19 +135,19 @@
     </main>
 
     <nav class="mobile-nav">
-      <a href="index.html"><i data-lucide="house"></i><span>Home</span></a>
-      <a href="calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
-      <a href="today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
-      <a href="notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
-      <a class="active" href="categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
+      <a href="../home/home.html"><i data-lucide="house"></i><span>Home</span></a>
+      <a href="../calendar/calendar.html"><i data-lucide="calendar-days"></i><span>Calendar</span></a>
+      <a href="../today/today.html"><i data-lucide="square-check-big"></i><span>Today</span></a>
+      <a href="../notes/notes.html"><i data-lucide="notebook-pen"></i><span>Notes</span></a>
+      <a class="active" href="../categories/categories.html"><i data-lucide="layout-grid"></i><span>Categories</span></a>
     </nav>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="js/categories/categories.js"></script>
-  <script src="js/shared/attachments.js"></script>
-  <script src="js/category/category.js"></script>
-  <script src="js/shared/search.js"></script>
-  <script src="js.js"></script>
+  <script src="../categories/categories.js"></script>
+  <script src="../shared/attachments.js"></script>
+  <script src="category.js"></script>
+  <script src="../shared/search.js"></script>
+  <script src="../js.js"></script>
 </body>
 </html>
