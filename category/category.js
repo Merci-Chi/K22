@@ -559,6 +559,7 @@ function bindCategoryBlockSelectionGesture(row,block) {
       clearTimeout(holdTimer);
       holdTimer=null;
     }
+    row.classList.remove("pressing-to-select");
   };
 
   row.addEventListener("pointerdown",e=>{
@@ -569,9 +570,11 @@ function bindCategoryBlockSelectionGesture(row,block) {
     startX=e.clientX;
     startY=e.clientY;
     longPressTriggered=false;
+    row.classList.add("pressing-to-select");
 
     holdTimer=setTimeout(()=>{
       holdTimer=null;
+      row.classList.remove("pressing-to-select");
       longPressTriggered=true;
       row.dataset.longPressTriggered="1";
       window.getSelection()?.removeAllRanges?.();
@@ -2087,6 +2090,7 @@ function renderCategoryBlocks() {
   if(!canvas)return;
 
   canvas.innerHTML="";
+  canvas.classList.toggle("selection-mode",categoryBlockSelectionMode);
 
   if(!categoryBlocksAvailable){
     empty?.classList.remove("hidden");
