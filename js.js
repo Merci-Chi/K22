@@ -330,9 +330,34 @@ function updateQueuedStatus() {
 
 function queueMutation(mutation) {
   const queue = getOfflineQueue();
+  const user_id=currentUser?.id||null;
+
+  // Coalesce repeated offline autosaves for the same category block.
+  // This keeps rapid typing from producing a long queue of stale updates.
+  if(
+    mutation.table==="category_blocks" &&
+    mutation.action==="update" &&
+    mutation.match?.id
+  ){
+    const existing=[...queue].reverse().find(item=>
+      item.user_id===user_id &&
+      item.table==="category_blocks" &&
+      item.action==="update" &&
+      item.match?.id===mutation.match.id
+    );
+
+    if(existing){
+      existing.payload={...(existing.payload||{}),...(mutation.payload||{})};
+      existing.created_at=Date.now();
+      saveOfflineQueue(queue);
+      saveOfflineCache();
+      return;
+    }
+  }
+
   queue.push({
     queue_id: crypto.randomUUID(),
-    user_id: currentUser?.id || null,
+    user_id,
     created_at: Date.now(),
     ...mutation
   });
@@ -1361,6 +1386,28 @@ function categoryEditorHasActiveInput() {
   );
 }
 
+function activeCategoryEditorBlockId() {
+  return document.activeElement?.closest?.("[data-block-id]")?.dataset?.blockId||null;
+}
+
+let deferredRealtimeRefresh=false;
+
+function requestGeneralRealtimeRefresh() {
+  if(categoryEditorHasActiveInput()){
+    deferredRealtimeRefresh=true;
+    return;
+  }
+  loadAll();
+}
+
+document.addEventListener("focusout",()=>{
+  setTimeout(()=>{
+    if(!deferredRealtimeRefresh || categoryEditorHasActiveInput())return;
+    deferredRealtimeRefresh=false;
+    loadAll();
+  },60);
+});
+
 function handleCategoryBlockRealtime(payload) {
   const next = payload?.new && Object.keys(payload.new).length ? payload.new : null;
   const previous = payload?.old && Object.keys(payload.old).length ? payload.old : null;
@@ -1371,8 +1418,22 @@ function handleCategoryBlockRealtime(payload) {
     state.categoryBlocks = (state.categoryBlocks || []).filter(x => x.id !== previous?.id);
   } else if (next) {
     const index = (state.categoryBlocks || []).findIndex(x => x.id === next.id);
-    if (index >= 0) state.categoryBlocks[index] = { ...state.categoryBlocks[index], ...next };
-    else state.categoryBlocks.push(next);
+    const local=index>=0?state.categoryBlocks[index]:null;
+    const locallySaving=
+      typeof categoryBlockHasPendingSave==="function" &&
+      categoryBlockHasPendingSave(next.id);
+    const activelyEditing=activeCategoryEditorBlockId()===next.id;
+    const localTime=Date.parse(local?.updated_at||0)||0;
+    const remoteTime=Date.parse(next.updated_at||0)||0;
+
+    // Never let an older realtime echo replace text that is still being
+    // typed/saved locally. Newer remote changes can reconcile once idle.
+    if(!locallySaving && !activelyEditing && remoteTime>=localTime){
+      if(index>=0)state.categoryBlocks[index]={...local,...next};
+      else state.categoryBlocks.push(next);
+    }else if(index<0 && !locallySaving){
+      state.categoryBlocks.push(next);
+    }
   }
 
   saveOfflineCache();
@@ -1392,15 +1453,15 @@ function handleCategoryBlockRealtime(payload) {
 function startRealtime() {
   if (realtimeChannel) db.removeChannel(realtimeChannel);
   realtimeChannel = db.channel("k22-sync")
-    .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"calendar_events"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"notes"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"category_items"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"category_notes"},()=>loadAll())
+    .on("postgres_changes",{event:"*",schema:"public",table:"tasks"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"calendar_events"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"notes"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"category_items"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"category_notes"},requestGeneralRealtimeRefresh)
     .on("postgres_changes",{event:"*",schema:"public",table:"category_blocks"},handleCategoryBlockRealtime)
-    .on("postgres_changes",{event:"*",schema:"public",table:"routine_items"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"attachments"},()=>loadAll())
-    .on("postgres_changes",{event:"*",schema:"public",table:"user_settings"},()=>loadAll())
+    .on("postgres_changes",{event:"*",schema:"public",table:"routine_items"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"attachments"},requestGeneralRealtimeRefresh)
+    .on("postgres_changes",{event:"*",schema:"public",table:"user_settings"},requestGeneralRealtimeRefresh)
     .subscribe(status=>{
       if(status==="SUBSCRIBED")setSyncStatus("Live sync on");
     });
