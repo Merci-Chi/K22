@@ -221,7 +221,9 @@ function buildUniversalSearchResults(query) {
 
   const categories=[...new Set([
     ...state.categoryItems.map(x=>x.category),
-    ...state.categoryNotes.map(x=>x.category)
+    ...state.categoryNotes.map(x=>x.category),
+    ...(state.categoryPages||[]).map(x=>x.category),
+    ...(state.categoryBlocks||[]).map(x=>x.category)
   ])];
   categories.forEach(category=>{
     if(category && category.toLowerCase().includes(q)){
@@ -387,6 +389,9 @@ function handleSearchJump(result) {
 
     if(result.action==="category-block"&&result.id){
       const jumpToBlock=()=>{
+        if(typeof revealCategoryBlockForSearch==="function"){
+          revealCategoryBlockForSearch(result.id);
+        }
         const el=document.querySelector('[data-block-id="'+result.id+'"]');
         if(!el)return false;
         el.scrollIntoView({behavior:"smooth",block:"center"});
