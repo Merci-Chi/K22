@@ -31,7 +31,9 @@ const CATEGORY_PAGE_META = {
 };
 
 function categoryPageUrl(category) {
-  return "category.html?name="+encodeURIComponent(category);
+  const url=new URL("../category/category.html",location.href);
+  url.searchParams.set("name",category);
+  return url.href;
 }
 
 
