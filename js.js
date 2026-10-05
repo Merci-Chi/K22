@@ -556,22 +556,23 @@ function renderEverything() {
   updateDynamicDateUI();
   renderTaskSection("homeTodoList","homeTodoForm","homeTodoInput","clearCompleted","home");
   renderTaskSection("todayPageTasks","todayTaskForm","todayTaskInput","todayClearDone","today");
-  renderTodoHub();
-  renderCalendar();
-  renderAgenda();
-  bindEventModal();
-  renderHomeCalendar();
-  renderHomeEvents();
-  renderSmartHome();
-  renderRoutine();
-  renderFocus();
-  renderNotesPage();
-  setupCategoryPage();
-  renderCategoryBlocks();
-  bindAttachmentInputs();
-  renderNoteAttachments();
-  bindCategoryCards();
-  bindSearch();
+
+  if (typeof renderTodoHub === "function") renderTodoHub();
+  if (typeof renderCalendar === "function") renderCalendar();
+  if (typeof renderAgenda === "function") renderAgenda();
+  if (typeof bindEventModal === "function") bindEventModal();
+  if (typeof renderHomeCalendar === "function") renderHomeCalendar();
+  if (typeof renderHomeEvents === "function") renderHomeEvents();
+  if (typeof renderSmartHome === "function") renderSmartHome();
+  if (typeof renderRoutine === "function") renderRoutine();
+  if (typeof renderFocus === "function") renderFocus();
+  if (typeof renderNotesPage === "function") renderNotesPage();
+  if (typeof setupCategoryPage === "function") setupCategoryPage();
+  if (typeof renderCategoryBlocks === "function") renderCategoryBlocks();
+  if (typeof bindAttachmentInputs === "function") bindAttachmentInputs();
+  if (typeof renderNoteAttachments === "function") renderNoteAttachments();
+  if (typeof bindCategoryCards === "function") bindCategoryCards();
+  if (typeof bindSearch === "function") bindSearch();
   bindHeaderButtons();
   icons();
 }
@@ -1424,7 +1425,16 @@ async function handleSession(session) {
 }
 
 document.addEventListener("keydown",e=>{
-  if(e.key==="Escape"){closeCategory();closeEventModal();closeRoutineModal();closeTaskModal();closeBackupManager();document.getElementById("accountSecurityBackdrop")?.remove();document.body.classList.remove("modal-open");document.getElementById("profilePopover")?.remove();}
+  if(e.key==="Escape"){
+    if(typeof closeCategory==="function")closeCategory();
+    if(typeof closeEventModal==="function")closeEventModal();
+    if(typeof closeRoutineModal==="function")closeRoutineModal();
+    if(typeof closeTaskModal==="function")closeTaskModal();
+    closeBackupManager();
+    document.getElementById("accountSecurityBackdrop")?.remove();
+    document.body.classList.remove("modal-open");
+    document.getElementById("profilePopover")?.remove();
+  }
   if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==="s"&&document.getElementById("saveNoteBtn")){
     e.preventDefault();document.getElementById("saveNoteBtn").click();
   }
@@ -1466,12 +1476,12 @@ document.addEventListener("visibilitychange", () => {
   k22HiddenAt = null;
   if (!document.hidden) {
     updateDynamicDateUI();
-    renderHomeCalendar();
-    renderHomeEvents();
-    renderSmartHome();
-    if (document.querySelector(".full-calendar-grid")) {
+    if(typeof renderHomeCalendar==="function")renderHomeCalendar();
+    if(typeof renderHomeEvents==="function")renderHomeEvents();
+    if(typeof renderSmartHome==="function")renderSmartHome();
+    if (document.querySelector(".full-calendar-grid") && typeof renderCalendar==="function") {
       const d = localDateObject();
-      if (selectedDate === todayISO()) {
+      if (typeof selectedDate!=="undefined" && selectedDate === todayISO() && typeof calendarCursor!=="undefined") {
         calendarCursor = new Date(d.getFullYear(), d.getMonth(), 1);
       }
       renderCalendar();
@@ -1481,47 +1491,18 @@ document.addEventListener("visibilitychange", () => {
 
 setInterval(() => {
   updateDynamicDateUI();
-  renderHomeEvents();
-  renderSmartHome();
+  if(typeof renderHomeEvents==="function")renderHomeEvents();
+  if(typeof renderSmartHome==="function")renderSmartHome();
 }, 60000);
 
-const K22_PAGE_SCRIPTS = [
-  "calendar.js",
-  "today.js",
-  "home.js",
-  "notes.js",
-  "categories.js",
-  "attachments.js",
-  "category.js",
-  "search.js"
-];
-
-function loadK22Script(src) {
-  return new Promise((resolve, reject) => {
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = false;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error("Could not load " + src));
-    document.head.appendChild(script);
-  });
-}
-
-async function loadK22PageScripts() {
-  for (const src of K22_PAGE_SCRIPTS) {
-    await loadK22Script(src);
-  }
-}
-
-(async function bootK22SplitApp() {
+(async function bootK22App() {
   try {
-    await loadK22PageScripts();
     await initK22();
   } catch (error) {
     console.error("K22 startup failed:", error);
     document.body.insertAdjacentHTML(
       "beforeend",
-      '<div style="position:fixed;inset:20px;z-index:99999;background:#fff;padding:20px;border-radius:14px;box-shadow:0 10px 40px #0002;font:14px sans-serif">K22 could not finish loading. Check that all split JavaScript files were uploaded beside js.js.</div>'
+      '<div style="position:fixed;inset:20px;z-index:99999;background:#fff;padding:20px;border-radius:14px;box-shadow:0 10px 40px #0002;font:14px sans-serif">K22 could not finish loading. Refresh the page and check the console if this continues.</div>'
     );
   }
 })();
