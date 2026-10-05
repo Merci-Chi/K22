@@ -13,7 +13,7 @@
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
   <title>Category — K22</title>
 </head>
-<body data-page="category">
+<body data-page="category" class="category-initial-loading">
   <div class="app-shell">
     <aside class="sidebar">
       <div class="brand-mark"><i data-lucide="cat"></i></div>
@@ -42,6 +42,37 @@
       </header>
 
       <article class="category-document">
+        <div id="categoryPageSkeleton" class="category-page-skeleton" aria-hidden="true">
+          <div class="category-skeleton-cover"></div>
+          <div class="category-skeleton-header">
+            <div class="category-skeleton-line skeleton-w-20"></div>
+            <div class="category-skeleton-line skeleton-title"></div>
+            <div class="category-skeleton-line skeleton-w-46"></div>
+            <div class="category-skeleton-line skeleton-w-28"></div>
+          </div>
+          <div class="category-skeleton-body">
+            <div class="category-skeleton-line skeleton-w-16"></div>
+            <div class="category-skeleton-panel">
+              <div class="category-skeleton-line skeleton-w-22"></div>
+              <div class="category-skeleton-line skeleton-w-36"></div>
+              <div class="category-skeleton-cards">
+                <div class="category-skeleton-card"></div>
+                <div class="category-skeleton-card"></div>
+                <div class="category-skeleton-card"></div>
+              </div>
+            </div>
+            <div class="category-skeleton-document">
+              <div class="category-skeleton-line skeleton-w-24"></div>
+              <div class="category-skeleton-grid">
+                <div class="category-skeleton-card tall"></div>
+                <div class="category-skeleton-card medium"></div>
+                <div class="category-skeleton-card tall"></div>
+                <div class="category-skeleton-card short"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <section class="category-cover" id="categoryCover">
           <div class="category-cover-pattern"></div>
           <div class="category-cover-icon" id="categoryPageIcon"><i data-lucide="folder-open"></i></div>
@@ -49,11 +80,11 @@
 
         <header class="category-document-header">
           <div class="category-document-kicker">K22 Category</div>
-          <h1 id="categoryPageTitle">Category</h1>
-          <p id="categoryPageDescription">Your space for everything that belongs here.</p>
+          <h1 id="categoryPageTitle"></h1>
+          <p id="categoryPageDescription"></p>
           <div class="category-page-meta">
-            <span><i data-lucide="clock-3"></i><span id="categoryLastEdited" aria-live="polite">Ready</span></span>
-            <span><i data-lucide="blocks"></i><span id="categoryBlockCount" aria-live="polite">0 blocks</span></span>
+            <span><i data-lucide="clock-3"></i><span id="categoryLastEdited" aria-live="polite"></span></span>
+            <span><i data-lucide="blocks"></i><span id="categoryBlockCount" aria-live="polite"></span></span>
           </div>
         </header>
 
@@ -63,7 +94,7 @@
           <div class="category-subpages-head">
             <div>
               <small>Pages</small>
-              <h2 id="categorySubpagesTitle">Subpages</h2>
+              <h2 id="categorySubpagesTitle"></h2>
             </div>
           </div>
           <div id="categorySubpages" class="category-subpages-grid"></div>
@@ -75,7 +106,7 @@
             <div class="category-section-title category-editor-title">
               <div>
                 <small>Document</small>
-                <h2>Your Page</h2>
+                <h2></h2>
               </div>
               <div class="category-editor-tools">
                 <button id="applyCategoryTemplate" class="category-template-btn" type="button"><i data-lucide="wand-sparkles"></i><span>Starter Template</span></button>
