@@ -1,5 +1,61 @@
 // K22 — Universal search
 
+function searchTaskView(task) {
+  if(typeof taskView==="function") return searchTaskView(task);
+  if(task.done) return "completed";
+  return task.bucket || task.scope || "task";
+}
+
+function searchTaskDueLabel(task) {
+  if(typeof taskDueLabel==="function") return searchTaskDueLabel(task);
+  return task.due_date || "";
+}
+
+function searchEventTimeLabel(ev) {
+  if(typeof eventTimeLabel==="function") return searchEventTimeLabel(ev);
+  return ev.event_time || ev.start_time || "";
+}
+
+function searchEventDateLabel(ev) {
+  if(typeof formatEventDateLabel==="function") return searchEventDateLabel(ev);
+  return ev.event_date || "";
+}
+
+function searchRoutineRepeatLabel(item) {
+  if(typeof routineRepeatLabel==="function") return searchRoutineRepeatLabel(item);
+  return Array.isArray(item.repeat_days) ? item.repeat_days.join(",") : "";
+}
+
+function searchNormalizeBlockContent(block) {
+  if(typeof normalizeBlockContent==="function") return searchNormalizeBlockContent(block);
+  const content=block?.content;
+  if(content && typeof content==="object" && !Array.isArray(content))return content;
+  if(typeof content==="string")return {text:content};
+  return {};
+}
+
+function searchAttachmentById(id) {
+  if(typeof attachmentById==="function") return searchAttachmentById(id);
+  return (state.attachments||[]).find(x=>x.id===id)||null;
+}
+
+function searchAttachmentIcon(mime) {
+  if(typeof attachmentIcon==="function") return attachmentIcon(mime);
+  if(String(mime||"").startsWith("image/")) return "image";
+  if(String(mime||"").includes("pdf")) return "file-text";
+  return "file";
+}
+
+function searchCategoryTypeMeta(type) {
+  if(typeof CATEGORY_BLOCK_TYPES!=="undefined" && CATEGORY_BLOCK_TYPES[type]) return CATEGORY_BLOCK_TYPES[type];
+  return {icon:"blocks",label:"Block"};
+}
+
+function searchCategoryPageUrl(category) {
+  if(typeof categoryPageUrl==="function") return categoryPageUrl(category);
+  return "category.html?name="+encodeURIComponent(category);
+}
+
 function buildUniversalSearchResults(query) {
   const q=query.trim().toLowerCase();
   if(!q)return [];
@@ -11,7 +67,7 @@ function buildUniversalSearchResults(query) {
     if(hay.includes(q)){
       results.push({
         type:"Task",icon:"check-square",title:task.text,
-        detail:[taskView(task),task.category,taskDueLabel(task)].filter(Boolean).join(" · "),
+        detail:[searchTaskView(task),task.category,searchTaskDueLabel(task)].filter(Boolean).join(" · "),
         page:"today.html",action:"task",id:task.id
       });
     }
@@ -28,11 +84,11 @@ function buildUniversalSearchResults(query) {
   });
 
   state.events.forEach(ev=>{
-    const hay=[ev.title,ev.event_date,ev.location,ev.notes,eventTimeLabel(ev)].filter(Boolean).join(" ").toLowerCase();
+    const hay=[ev.title,ev.event_date,ev.location,ev.notes,searchEventTimeLabel(ev)].filter(Boolean).join(" ").toLowerCase();
     if(hay.includes(q)){
       results.push({
         type:"Calendar",icon:"calendar-days",title:ev.title,
-        detail:[formatEventDateLabel(ev),eventTimeLabel(ev),ev.location].filter(Boolean).join(" · "),
+        detail:[searchEventDateLabel(ev),searchEventTimeLabel(ev),ev.location].filter(Boolean).join(" · "),
         page:"calendar.html",action:"event",id:ev.id
       });
     }
@@ -50,17 +106,17 @@ function buildUniversalSearchResults(query) {
   });
 
   (state.categoryBlocks||[]).forEach(block=>{
-    const content=normalizeBlockContent(block);
+    const content=searchNormalizeBlockContent(block);
     const mediaNames=[
-      content.attachment_id ? attachmentById(content.attachment_id)?.file_name : "",
-      ...(Array.isArray(content.attachment_ids)?content.attachment_ids.map(id=>attachmentById(id)?.file_name||"") : [])
+      content.attachment_id ? searchAttachmentById(content.attachment_id)?.file_name : "",
+      ...(Array.isArray(content.attachment_ids)?content.attachment_ids.map(id=>searchAttachmentById(id)?.file_name||"") : [])
     ];
     const hay=[block.category,content.text,content.url,content.caption,...mediaNames].filter(Boolean).join(" ").toLowerCase();
     if(hay.includes(q) && (content.text||content.url)){
       results.push({
-        type:block.category,icon:CATEGORY_BLOCK_TYPES[block.type]?.icon||"blocks",
-        title:content.text||content.caption||mediaNames.filter(Boolean).join(", ")||content.url||CATEGORY_BLOCK_TYPES[block.type]?.label||"Block",
-        detail:(CATEGORY_BLOCK_TYPES[block.type]?.label||"Block")+" · Category page",
+        type:block.category,icon:searchCategoryTypeMeta(block.type).icon||"blocks",
+        title:content.text||content.caption||mediaNames.filter(Boolean).join(", ")||content.url||searchCategoryTypeMeta(block.type).label||"Block",
+        detail:(searchCategoryTypeMeta(block.type).label||"Block")+" · Category page",
         page:"category.html",action:"category-block",id:block.id,category:block.category
       });
     }
@@ -77,11 +133,11 @@ function buildUniversalSearchResults(query) {
   });
 
   state.routine.forEach(item=>{
-    const hay=[item.label,item.time_of_day,routineRepeatLabel(item)].filter(Boolean).join(" ").toLowerCase();
+    const hay=[item.label,item.time_of_day,searchRoutineRepeatLabel(item)].filter(Boolean).join(" ").toLowerCase();
     if(hay.includes(q)){
       results.push({
         type:"Routine",icon:"repeat-2",title:item.label,
-        detail:[item.time_of_day,routineRepeatLabel(item)].filter(Boolean).join(" · "),
+        detail:[item.time_of_day,searchRoutineRepeatLabel(item)].filter(Boolean).join(" · "),
         page:"today.html",action:"routine",id:item.id
       });
     }
@@ -93,7 +149,7 @@ function buildUniversalSearchResults(query) {
       const isNote=file.owner_type==="note";
       const note=isNote?state.notes.find(n=>n.id===file.owner_id):null;
       results.push({
-        type:"File",icon:attachmentIcon(file.mime_type),title:file.file_name,
+        type:"File",icon:searchAttachmentIcon(file.mime_type),title:file.file_name,
         detail:isNote ? (note?.title||"Note attachment") : ((file.owner_key||"Category")+" attachment"),
         page:isNote?"notes.html":"categories.html",
         action:isNote?"note":"category",
@@ -173,7 +229,7 @@ function renderUniversalSearch(input) {
         input.value="";
       }else{
         location.href=(result.page==="category.html"&&result.category)
-          ? categoryPageUrl(result.category)
+          ? searchCategoryPageUrl(result.category)
           : result.page;
       }
     });
@@ -215,8 +271,8 @@ function handleSearchJump(result) {
   if(!result)return;
 
   if(result.action==="note"){
-    activeNoteId=result.id;
-    renderNotesPage();
+    if(typeof activeNoteId!=="undefined")activeNoteId=result.id;
+    if(typeof renderNotesPage==="function")renderNotesPage();
     setTimeout(()=>document.getElementById("noteTitle")?.focus(),80);
   }
 
@@ -227,17 +283,17 @@ function handleSearchJump(result) {
       const d=new Date(ev.event_date+"T12:00:00");
       calendarCursor=new Date(d.getFullYear(),d.getMonth(),1);
       renderCalendar();
-      openEventModal(ev,ev.event_date);
+      if(typeof openEventModal==="function")openEventModal(ev,ev.event_date);
     }
   }
 
   if(result.action==="task"){
     const task=state.tasks.find(x=>x.id===result.id);
     if(task){
-      todoView=taskView(task);
+      todoView=searchTaskView(task);
       document.querySelectorAll(".todo-tab").forEach(btn=>btn.classList.toggle("active",btn.dataset.todoView===todoView));
       renderTodoHub();
-      openTaskModal(task);
+      if(typeof openTaskModal==="function")openTaskModal(task);
     }
   }
 
@@ -247,7 +303,7 @@ function handleSearchJump(result) {
   }
 
   if(result.action==="category"||result.action==="category-item"||result.action==="category-block"){
-    openCategory(result.category);
+    if(typeof openCategory==="function")openCategory(result.category);
     if(result.action==="category-block"&&result.id){
       setTimeout(()=>{
         const el=document.querySelector('[data-block-id="'+result.id+'"]');
