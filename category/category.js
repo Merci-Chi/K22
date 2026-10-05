@@ -1346,21 +1346,24 @@ function isConvertibleCategoryBlock(type) {
 }
 
 async function persistCategoryBlockOrder(rows) {
-  rows.forEach((row,index)=>row.position=index);
+  rows.forEach((row,index)=>{
+    row.position=index;
+    row.updated_at=new Date().toISOString();
+  });
   saveOfflineCache();
 
-  for(const row of rows){
-    const result=await commitMutation({
-      table:"category_blocks",
-      action:"update",
-      payload:{position:row.position},
-      match:{id:row.id}
-    },[row]);
-    if(result.error){
-      toast(result.error.message,true);
-      break;
-    }
-  }
+  // Finish any text autosave for these blocks before writing their new order.
+  await waitForCategoryBlockSaves(rows.map(row=>row.id));
+
+  const results=await Promise.all(rows.map(row=>
+    queueCategoryBlockSave(row,{
+      position:row.position,
+      updated_at:row.updated_at
+    })
+  ));
+
+  const failed=results.find(result=>result?.error);
+  if(failed?.error)toast(failed.error.message,true);
   updateCategoryDocumentMeta();
 }
 
@@ -1373,7 +1376,13 @@ async function moveCategoryBlock(block,direction) {
   rows.splice(nextIndex,0,moved);
   await persistCategoryBlockOrder(rows);
   renderCategoryBlocks();
-  setTimeout(()=>document.querySelector('[data-block-id="'+block.id+'"]')?.scrollIntoView({block:"nearest"}),20);
+  setTimeout(()=>{
+    const row=document.querySelector('[data-block-id="'+block.id+'"]');
+    row?.scrollIntoView({block:"nearest"});
+    const field=row?.querySelector(".category-block-input");
+    field?.focus();
+    placeCaretAtEnd(field);
+  },30);
 }
 
 async function moveCategoryBlockTo(block,targetBlock,before=true) {
@@ -1388,6 +1397,12 @@ async function moveCategoryBlockTo(block,targetBlock,before=true) {
   rows.splice(target,0,moved);
   await persistCategoryBlockOrder(rows);
   renderCategoryBlocks();
+  setTimeout(()=>{
+    const row=document.querySelector('[data-block-id="'+block.id+'"]');
+    const field=row?.querySelector(".category-block-input");
+    field?.focus();
+    placeCaretAtEnd(field);
+  },30);
 }
 
 async function duplicateCategoryBlock(block) {
@@ -1426,6 +1441,11 @@ async function duplicateCategoryBlock(block) {
 
   await persistCategoryBlockOrder(rows);
   renderCategoryBlocks();
+  setTimeout(()=>{
+    const field=document.querySelector('[data-block-id="'+clone.id+'"] .category-block-input');
+    field?.focus();
+    placeCaretAtEnd(field);
+  },30);
   toast("Block duplicated");
 }
 
