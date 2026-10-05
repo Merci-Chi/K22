@@ -672,6 +672,53 @@ function hideRichToolbarSoon() {
   },80);
 }
 
+const categoryBlockSaveChains=new Map();
+const categoryBlockPendingCounts=new Map();
+
+function categoryBlockHasPendingSave(id) {
+  return (categoryBlockPendingCounts.get(id)||0)>0;
+}
+
+function markCategoryBlockSavePending(id,delta) {
+  const next=Math.max(0,(categoryBlockPendingCounts.get(id)||0)+delta);
+  if(next)categoryBlockPendingCounts.set(id,next);
+  else categoryBlockPendingCounts.delete(id);
+}
+
+function waitForCategoryBlockSave(id) {
+  return categoryBlockSaveChains.get(id)||Promise.resolve();
+}
+
+async function waitForCategoryBlockSaves(ids) {
+  await Promise.all([...new Set(ids)].map(waitForCategoryBlockSave));
+}
+
+function queueCategoryBlockSave(block,payload) {
+  const id=block.id;
+  const previous=categoryBlockSaveChains.get(id)||Promise.resolve();
+  markCategoryBlockSavePending(id,1);
+
+  const task=previous
+    .catch(()=>{})
+    .then(()=>commitMutation({
+      table:"category_blocks",
+      action:"update",
+      payload,
+      match:{id}
+    },[block]))
+    .then(result=>{
+      if(result.error)toast(result.error.message,true);
+      return result;
+    })
+    .finally(()=>{
+      markCategoryBlockSavePending(id,-1);
+      if(categoryBlockSaveChains.get(id)===task)categoryBlockSaveChains.delete(id);
+    });
+
+  categoryBlockSaveChains.set(id,task);
+  return task;
+}
+
 async function createCategoryBlock(type="paragraph", afterId=null) {
   if(!categoryBlocksAvailable){
     toast("Run the Batch 2 category_blocks SQL first",true);
