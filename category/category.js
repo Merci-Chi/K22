@@ -254,7 +254,11 @@ function updateCategoryDocumentMeta() {
     : meta.description;
 
   const documentHeading=document.querySelector(".category-editor-title h2");
-  if(documentHeading)documentHeading.textContent=activePage ? activePage.title : "Your Page";
+  if(documentHeading){
+    documentHeading.textContent=activePage
+      ? (categoryCardBlockForContentPage(activePage.id)?"Card Content":activePage.title)
+      : "Your Page";
+  }
   if(icon)icon.innerHTML='<i data-lucide="'+meta.icon+'"></i>';
   if(cover){
     cover.className="category-cover tone-"+meta.tone;
@@ -1550,7 +1554,17 @@ function mediaBlockField(block,content) {
           </div>
           <div class="category-photo-card-copy">
             <div class="category-photo-card-title">${esc(categoryCardContentPage(block)?.title||content.title||"Photo title")}</div>
-            <div class="category-photo-card-caption">${esc(content.caption||"Open to add content")}</div>
+            <div class="category-photo-card-caption">${esc((()=>{
+              const page=categoryCardContentPage(block);
+              const insideImage=page
+                ? (state.categoryBlocks||[]).find(x=>
+                    x.category===activeCategory &&
+                    (x.page_id||null)===page.id &&
+                    x.type==="image"
+                  )
+                : null;
+              return normalizeBlockContent(insideImage||{}).caption||content.caption||"Open to add content";
+            })())}</div>
             <div class="category-card-open-hint"><span>Open card</span><i data-lucide="chevron-right"></i></div>
           </div>
         </div>
