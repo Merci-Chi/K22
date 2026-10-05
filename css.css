@@ -2335,3 +2335,100 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
     max-width:100%;
   }
 }
+
+
+/* Batch 2 — polaroid photo cards */
+.category-photo-card{
+  max-width:260px!important;
+  width:100%;
+  padding:6px 0 10px;
+}
+
+.category-photo-card-shell{
+  width:100%;
+  background:#fff;
+  border:1px solid rgba(41,38,35,.08);
+  border-radius:18px;
+  padding:11px 11px 14px;
+  box-shadow:0 10px 24px rgba(41,38,35,.08);
+}
+
+.category-photo-card-photo{
+  position:relative;
+  aspect-ratio:1 / 1;
+  overflow:hidden;
+  border-radius:12px;
+  background:#f1ede8;
+}
+
+.category-photo-card-photo .category-media-image{
+  width:100%;
+  height:100%;
+  max-height:none;
+  object-fit:cover;
+  display:block;
+}
+
+.category-photo-card-copy{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:10px 3px 0;
+}
+
+.category-photo-card-title,
+.category-photo-card-caption{
+  width:100%;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:#3d3834;
+}
+
+.category-photo-card-title{
+  font-family:Georgia,serif;
+  font-size:17px;
+  font-weight:700;
+  line-height:1.25;
+}
+
+.category-photo-card-title::placeholder{
+  color:#aaa39d;
+}
+
+.category-photo-card-caption{
+  resize:none;
+  min-height:38px;
+  font:inherit;
+  font-size:11.5px;
+  line-height:1.45;
+  color:#817a74;
+  padding:0;
+}
+
+.category-photo-card-caption::placeholder{
+  color:#aaa39d;
+}
+
+.category-block.selected .category-photo-card-shell{
+  box-shadow:0 0 0 2px rgba(58,53,49,.14),0 10px 24px rgba(41,38,35,.08);
+}
+
+@media(max-width:650px){
+  .category-photo-card{
+    max-width:220px!important;
+  }
+
+  .category-photo-card-shell{
+    padding:9px 9px 12px;
+    border-radius:16px;
+  }
+
+  .category-photo-card-photo{
+    border-radius:10px;
+  }
+
+  .category-photo-card-title{
+    font-size:16px;
+  }
+}
