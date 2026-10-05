@@ -106,69 +106,6 @@
 
   </div>
 
-  <div class="modal-backdrop hidden" id="modalBackdrop">
-    <div class="category-modal">
-      <div class="category-modal-head">
-        <div class="category-modal-title">
-          <div class="category-modal-icon"><i data-lucide="folder-open"></i></div>
-          <div>
-            <small>Category</small>
-            <h3 id="modalTitle">Category</h3>
-          </div>
-        </div>
-        <button class="modal-close" id="closeModal" aria-label="Close"><i data-lucide="x"></i></button>
-      </div>
-
-      <div class="category-modal-grid">
-        <section class="category-modal-section">
-          <div class="category-section-title">
-            <h4><i data-lucide="list-checks"></i> Items</h4>
-            <span id="categoryItemCount">0 items</span>
-          </div>
-
-          <form id="categoryItemForm" class="category-entry-form">
-            <div class="category-quick-add">
-              <i data-lucide="plus"></i>
-              <input id="categoryItemInput" type="text" placeholder="Add something..." />
-              <button id="categorySubmitBtn" type="submit">Add</button>
-            </div>
-            <div id="categorySpecialFields" class="category-special-fields hidden"></div>
-            <button type="button" id="cancelCategoryEdit" class="category-cancel-edit hidden">Cancel editing</button>
-          </form>
-
-          <div id="categoryItems" class="category-items"></div>
-          <div id="categoryEmpty" class="category-empty">
-            <i data-lucide="inbox"></i>
-            <b>Nothing here yet</b>
-            <span>Add your first item above.</span>
-          </div>
-        </section>
-
-        <section class="category-modal-section notes-section">
-          <div class="category-section-title">
-            <h4><i data-lucide="notebook-pen"></i> Notes</h4>
-          </div>
-          <textarea id="modalNotes" placeholder="Write notes for this category..."></textarea>
-          <button class="save-btn" id="saveNotes">Save Notes</button>
-
-          <div class="category-attachments attachment-section">
-            <div class="attachment-head">
-              <div>
-                <h4><i data-lucide="paperclip"></i> Files & Photos</h4>
-                <small id="categoryAttachmentCount">0 files</small>
-              </div>
-              <label class="attachment-upload-btn compact">
-                <input id="categoryAttachmentInput" type="file" multiple hidden>
-                <i data-lucide="upload"></i> Add
-              </label>
-            </div>
-            <div id="categoryAttachments" class="attachment-list"></div>
-          </div>
-        </section>
-      </div>
-    </div>
-  </div>
-
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="categories.js"></script>
   <script src="../shared/search.js"></script>
