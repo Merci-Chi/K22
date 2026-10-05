@@ -1455,6 +1455,7 @@ async function duplicateCategoryBlock(block) {
     id:crypto.randomUUID(),
     user_id:currentUser.id,
     category:activeCategory,
+    page_id:block.page_id||activeCategoryPageId||null,
     type:block.type,
     content:structuredClone(normalizeBlockContent(block)),
     settings:structuredClone(block.settings||{}),
