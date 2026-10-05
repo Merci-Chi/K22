@@ -61,6 +61,11 @@ function setupCategoryPage() {
   openCategory(requested,{replaceUrl:true,pageId:validPage});
 }
 
+function searchSafeCategoryPathLabel(page) {
+  if(!page)return activeCategory;
+  return [activeCategory,...categoryPageAncestors(page.id).map(item=>item.title)].join(" › ");
+}
+
 function updateCategoryDocumentMeta() {
   if(document.body.dataset.page!=="category" || !activeCategory)return;
   const title=document.getElementById("categoryPageTitle");
@@ -73,8 +78,11 @@ function updateCategoryDocumentMeta() {
 
   if(title)title.textContent=activePage?.title||activeCategory;
   if(description)description.textContent=activePage
-    ? "Subpage in "+activeCategory
+    ? "A page inside "+searchSafeCategoryPathLabel(activePage)
     : meta.description;
+
+  const documentHeading=document.querySelector(".category-editor-title h2");
+  if(documentHeading)documentHeading.textContent=activePage ? activePage.title : "Your Page";
   if(icon)icon.innerHTML='<i data-lucide="'+meta.icon+'"></i>';
   if(cover){
     cover.className="category-cover tone-"+meta.tone;
@@ -1608,7 +1616,8 @@ function renderCategoryBlocks() {
   const rows=blocksForActiveCategory();
   empty?.classList.toggle("hidden",rows.length>0);
   if(!rows.length && empty){
-    empty.innerHTML='<div class="category-block-empty-icon"><i data-lucide="wand-sparkles"></i></div><b>Build your '+esc(activeCategory)+' page</b><span>Start from scratch with Add block, or use the category starter template above.</span>';
+    const pageName=currentCategoryPage()?.title||activeCategory;
+    empty.innerHTML='<div class="category-block-empty-icon"><i data-lucide="wand-sparkles"></i></div><b>Build your '+esc(pageName)+' page</b><span>Start from scratch with Add block, or use the starter template above.</span>';
   }
   if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
 
@@ -2006,7 +2015,7 @@ function renderCategorySubpages() {
     card.innerHTML=
       '<button type="button" class="category-subpage-open">'+
         '<span class="category-subpage-icon"><i data-lucide="file-text"></i></span>'+
-        '<span class="category-subpage-copy"><b>'+esc(page.title)+'</b><small>'+childCount+' subpage'+(childCount===1?"":"s")+'</small></span>'+
+        '<span class="category-subpage-copy"><b>'+esc(page.title)+'</b><small>'+(childCount?childCount+' subpage'+(childCount===1?"":"s"):'Open page')+'</small></span>'+
         '<i data-lucide="chevron-right"></i>'+
       '</button>'+
       '<div class="category-subpage-actions">'+
@@ -2022,7 +2031,12 @@ function renderCategorySubpages() {
     holder.appendChild(card);
   });
 
-  empty?.classList.toggle("hidden",children.length>0);
+  if(empty){
+    empty.textContent=current
+      ? "No subpages inside "+current.title+" yet."
+      : "No subpages here yet.";
+    empty.classList.toggle("hidden",children.length>0);
+  }
 
   if(add&&!add.dataset.bound){
     add.dataset.bound="1";
@@ -2031,6 +2045,25 @@ function renderCategorySubpages() {
 
   renderCategoryBreadcrumb();
   icons();
+}
+
+function bindCategoryPageBackButton() {
+  const back=document.querySelector(".category-back-btn");
+  if(!back||back.dataset.bound)return;
+  back.dataset.bound="1";
+  back.addEventListener("click",e=>{
+    if(!activeCategoryPageId)return;
+    e.preventDefault();
+    const current=currentCategoryPage();
+    openCategory(activeCategory,{pageId:current?.parent_id||null});
+  });
+}
+
+function closeCategoryEditorOverlays() {
+  closeCategoryBlockMenus();
+  document.getElementById("categoryBlockMenu")?.classList.add("hidden");
+  document.getElementById("categoryOutline")?.classList.add("hidden");
+  document.getElementById("categoryRichToolbar")?.classList.add("hidden");
 }
 
 function openCategory(category, options={}) {
@@ -2058,6 +2091,7 @@ function openCategory(category, options={}) {
   }
 
   updateCategoryDocumentMeta();
+  bindCategoryPageBackButton();
   renderCategorySubpages();
   renderCategoryAttachments();
 
@@ -2201,3 +2235,15 @@ async function saveCategoryNotes(notify=false) {
 }
 
 
+
+
+let categoryEscapePolishBound=false;
+function bindCategoryEscapePolish(){
+  if(categoryEscapePolishBound)return;
+  categoryEscapePolishBound=true;
+  document.addEventListener("keydown",e=>{
+    if(document.body.dataset.page!=="category"||e.key!=="Escape")return;
+    closeCategoryEditorOverlays();
+  });
+}
+bindCategoryEscapePolish();
