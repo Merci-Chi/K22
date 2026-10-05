@@ -2078,3 +2078,260 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   -webkit-user-select:none;
   background:#f6f1ec;
 }
+
+
+/* Category page Batch 1 — compact header, card grid, smaller media */
+.category-document{
+  width:min(1040px,100%);
+}
+
+.category-cover{
+  min-height:132px;
+  height:132px;
+  padding:18px 28px;
+}
+
+.category-cover-icon{
+  width:58px;
+  height:58px;
+  border-radius:18px;
+}
+
+.category-cover-icon svg{
+  width:25px;
+  height:25px;
+}
+
+.category-document-header{
+  padding:18px 28px 16px;
+}
+
+.category-document-header h1{
+  margin:3px 0 5px;
+  font-size:36px;
+}
+
+.category-document-header>p{
+  font-size:12.5px;
+  line-height:1.45;
+}
+
+.category-page-meta{
+  margin-top:10px;
+  gap:10px 13px;
+}
+
+.category-breadcrumb{
+  margin:12px 28px 2px;
+  font-size:.8rem;
+}
+
+.category-subpages-section{
+  margin:10px 28px 14px;
+  padding:14px;
+  border-radius:16px;
+  background:#fbf8f5;
+}
+
+.category-subpages-head{
+  margin-bottom:10px;
+}
+
+.category-subpages-head h2{
+  font-size:1rem;
+}
+
+.category-subpages-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:9px;
+}
+
+.category-subpage-card{
+  min-height:104px;
+  border-radius:13px;
+  background:#fffdfb;
+  box-shadow:0 3px 12px rgba(41,38,35,.035);
+}
+
+.category-subpage-open{
+  align-items:flex-start;
+  padding:12px 11px 10px;
+}
+
+.category-subpage-icon{
+  width:36px;
+  height:36px;
+  flex:0 0 36px;
+  border-radius:10px;
+}
+
+.category-subpage-copy{
+  padding-top:1px;
+}
+
+.category-subpage-copy b{
+  font-size:13px;
+  line-height:1.2;
+}
+
+.category-subpage-copy small{
+  margin-top:5px;
+  font-size:10.5px;
+  line-height:1.25;
+}
+
+.category-subpage-actions{
+  position:absolute;
+  right:6px;
+  bottom:6px;
+  padding:0;
+}
+
+.category-subpage-actions button{
+  width:27px;
+  height:27px;
+}
+
+.category-subpage-new-card{
+  border-style:dashed;
+  padding:12px 11px;
+  text-align:left;
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  color:#514b46;
+  cursor:pointer;
+}
+
+.category-subpage-new-card:hover{
+  background:#f5f0eb;
+  border-color:rgba(41,38,35,.16);
+}
+
+.category-subpage-new-card .category-subpage-icon{
+  background:#eee7e0;
+}
+
+.category-document-body{
+  padding:2px 28px 30px;
+}
+
+.category-page-section{
+  padding:22px 0;
+}
+
+.category-block-editor-section{
+  padding-top:16px;
+}
+
+.category-editor-title{
+  margin-bottom:12px!important;
+}
+
+/* Keep media much more compact inside category documents. */
+.category-media-block.size-small{
+  max-width:260px;
+}
+
+.category-media-block.size-medium{
+  max-width:460px;
+}
+
+.category-media-block.size-full{
+  max-width:720px;
+}
+
+.category-media-frame{
+  min-height:100px;
+  border-radius:14px;
+}
+
+.category-media-image{
+  max-height:360px;
+}
+
+.category-gallery-grid{
+  max-width:640px;
+}
+
+.category-gallery-item{
+  aspect-ratio:1 / 1;
+  border-radius:12px;
+}
+
+@media(max-width:820px){
+  .category-cover{
+    min-height:108px;
+    height:108px;
+    padding:15px 18px;
+  }
+
+  .category-cover-icon{
+    width:50px;
+    height:50px;
+    border-radius:16px;
+  }
+
+  .category-cover-icon svg{
+    width:22px;
+    height:22px;
+  }
+
+  .category-document-header{
+    padding:16px 18px 15px;
+  }
+
+  .category-document-header h1{
+    font-size:31px;
+  }
+
+  .category-breadcrumb{
+    margin:10px 18px 2px;
+  }
+
+  .category-subpages-section{
+    margin:9px 18px 12px;
+    padding:12px;
+  }
+
+  .category-subpages-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .category-document-body{
+    padding:2px 18px 26px;
+  }
+}
+
+@media(max-width:520px){
+  .category-cover{
+    min-height:92px;
+    height:92px;
+  }
+
+  .category-document-header h1{
+    font-size:28px;
+  }
+
+  .category-subpages-grid{
+    grid-template-columns:1fr;
+  }
+
+  .category-subpage-card{
+    min-height:92px;
+  }
+
+  .category-media-block.size-small,
+  .category-media-block.size-medium,
+  .category-media-block.size-full{
+    max-width:100%;
+  }
+
+  .category-media-image{
+    max-height:280px;
+  }
+
+  .category-gallery-grid{
+    max-width:100%;
+  }
+}
