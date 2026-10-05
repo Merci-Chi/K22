@@ -69,6 +69,150 @@ function searchSafeCategoryPathLabel(page) {
   return [activeCategory,...categoryPageAncestors(page.id).map(item=>item.title)].join(" › ");
 }
 
+function categoryCardBlockForContentPage(pageId) {
+  if(!pageId)return null;
+  return (state.categoryBlocks||[]).find(block=>
+    isCategoryCardBlock(block) &&
+    block.settings?.content_page_id===pageId
+  )||null;
+}
+
+function categoryCardContentPage(block) {
+  const pageId=block?.settings?.content_page_id;
+  const page=pageId?categoryPageRecord(pageId):null;
+  return page && page.category===block.category ? page : null;
+}
+
+function cardPreviewTitle(block) {
+  const content=normalizeBlockContent(block);
+  return (content.title||"").trim() || (block.type==="image"?"Photo Card":"Untitled Card");
+}
+
+async function syncCategoryPageTitle(page,title) {
+  if(!page)return;
+  const next=(title||"").trim()||"Untitled";
+  if(page.title===next)return;
+
+  page.title=next;
+  page.updated_at=new Date().toISOString();
+  saveOfflineCache();
+
+  const owner=categoryCardBlockForContentPage(page.id);
+  if(owner){
+    const content={...normalizeBlockContent(owner),title:next};
+    owner.content=content;
+    owner.updated_at=page.updated_at;
+    queueCategoryBlockSave(owner,{content,updated_at:owner.updated_at});
+  }
+
+  const result=await commitMutation({
+    table:"category_pages",
+    action:"update",
+    payload:{title:next,updated_at:page.updated_at},
+    match:{id:page.id}
+  },[page]);
+
+  if(result.error)toast(result.error.message,true);
+  renderCategoryBreadcrumb();
+  renderCategorySubpages();
+  document.title=next+" — K22";
+}
+
+async function ensureCategoryCardPage(block,{open=true}={}) {
+  if(!block || !isCategoryCardBlock(block))return null;
+
+  const existing=categoryCardContentPage(block);
+  if(existing){
+    if(open)openCategory(activeCategory,{pageId:existing.id});
+    return existing;
+  }
+
+  const parentId=block.page_id||null;
+  const siblings=categoryPageChildren(parentId);
+  const page={
+    id:crypto.randomUUID(),
+    user_id:currentUser.id,
+    category:block.category||activeCategory,
+    title:cardPreviewTitle(block),
+    parent_id:parentId,
+    position:siblings.length,
+    created_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  };
+
+  state.categoryPages.push(page);
+  saveOfflineCache();
+
+  const pageResult=await commitMutation({
+    table:"category_pages",action:"insert",payload:page
+  },[page]);
+
+  if(pageResult.error){
+    state.categoryPages=state.categoryPages.filter(x=>x.id!==page.id);
+    saveOfflineCache();
+    toast(pageResult.error.message,true);
+    return null;
+  }
+  if(pageResult.data?.[0])Object.assign(page,pageResult.data[0]);
+
+  block.settings={...(block.settings||{}),content_page_id:page.id};
+  block.updated_at=new Date().toISOString();
+  const settingsResult=await queueCategoryBlockSave(block,{
+    settings:block.settings,
+    updated_at:block.updated_at
+  });
+  if(settingsResult?.error)return null;
+
+  // Preserve anything already typed on older cards by seeding the inside page.
+  const content=normalizeBlockContent(block);
+  const seedRows=[];
+  let position=0;
+
+  if(block.type==="image" && content.attachment_id){
+    seedRows.push({
+      id:crypto.randomUUID(),
+      user_id:currentUser.id,
+      category:block.category||activeCategory,
+      page_id:page.id,
+      type:"image",
+      content:{attachment_id:content.attachment_id,caption:content.caption||""},
+      settings:{size:"medium"},
+      position:position++,
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    });
+  }else if((content.text||"").trim()){
+    seedRows.push({
+      id:crypto.randomUUID(),
+      user_id:currentUser.id,
+      category:block.category||activeCategory,
+      page_id:page.id,
+      type:"paragraph",
+      content:{text:content.text||""},
+      settings:{},
+      position:position++,
+      created_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    });
+  }
+
+  if(seedRows.length){
+    state.categoryBlocks.push(...seedRows);
+    saveOfflineCache();
+    for(const row of seedRows){
+      const result=await commitMutation({
+        table:"category_blocks",action:"insert",payload:row
+      },[row]);
+      if(result.data?.[0])Object.assign(row,result.data[0]);
+      if(result.error)toast(result.error.message,true);
+    }
+  }
+
+  renderCategorySubpages();
+  if(open)openCategory(activeCategory,{pageId:page.id});
+  return page;
+}
+
 function updateCategoryDocumentMeta() {
   if(document.body.dataset.page!=="category" || !activeCategory)return;
   const title=document.getElementById("categoryPageTitle");
@@ -79,9 +223,34 @@ function updateCategoryDocumentMeta() {
   const meta=CATEGORY_PAGE_META[activeCategory] || {icon:"folder-open",tone:"blue",description:"Your space for everything that belongs here."};
   const activePage=currentCategoryPage();
 
-  if(title)title.textContent=activePage?.title||activeCategory;
+  if(title){
+    title.textContent=activePage?.title||activeCategory;
+    title.contentEditable=activePage?"true":"false";
+    title.spellcheck=true;
+    title.classList.toggle("editable-page-title",!!activePage);
+    title.onkeydown=e=>{
+      if(!activePage)return;
+      if(e.key==="Enter"){
+        e.preventDefault();
+        title.blur();
+      }
+    };
+    let titleTimer;
+    title.oninput=()=>{
+      if(!activePage)return;
+      clearTimeout(titleTimer);
+      titleTimer=setTimeout(()=>syncCategoryPageTitle(activePage,title.innerText),350);
+    };
+    title.onblur=()=>{
+      if(!activePage)return;
+      clearTimeout(titleTimer);
+      syncCategoryPageTitle(activePage,title.innerText);
+    };
+  }
   if(description)description.textContent=activePage
-    ? "A page inside "+searchSafeCategoryPathLabel(activePage)
+    ? (categoryCardBlockForContentPage(activePage.id)
+        ? "Card content · "+searchSafeCategoryPathLabel(activePage)
+        : "A page inside "+searchSafeCategoryPathLabel(activePage))
     : meta.description;
 
   const documentHeading=document.querySelector(".category-editor-title h2");
@@ -684,7 +853,11 @@ async function bulkDuplicateCategoryBlocks() {
       page_id:activeCategoryPageId||null,
       type:block.type,
       content:structuredClone(normalizeBlockContent(block)),
-      settings:structuredClone(block.settings||{}),
+      settings:(()=>{
+        const settings=structuredClone(block.settings||{});
+        delete settings.content_page_id;
+        return settings;
+      })(),
       position:nextRows.length,
       created_at:new Date().toISOString(),
       updated_at:new Date().toISOString()
@@ -1148,6 +1321,8 @@ async function updateCategoryBlock(block, patch) {
 }
 
 async function deleteCategoryBlock(block) {
+  const linkedPageId=isCategoryCardBlock(block)?block.settings?.content_page_id:null;
+  const linkedDescendants=linkedPageId?categoryPageDescendantIds(linkedPageId):null;
   const rows=blocksForActiveCategory();
   const index=rows.findIndex(x=>x.id===block.id);
   const focusId=rows[index+1]?.id||rows[index-1]?.id||null;
@@ -1173,6 +1348,17 @@ async function deleteCategoryBlock(block) {
     table:"category_blocks",action:"delete",match:{id:block.id}
   });
   if(result.error)return toast(result.error.message,true);
+
+  if(linkedPageId && linkedDescendants){
+    state.categoryPages=(state.categoryPages||[]).filter(x=>!linkedDescendants.has(x.id));
+    state.categoryBlocks=(state.categoryBlocks||[]).filter(x=>!x.page_id || !linkedDescendants.has(x.page_id));
+    saveOfflineCache();
+    const pageResult=await commitMutation({
+      table:"category_pages",action:"delete",match:{id:linkedPageId}
+    });
+    if(pageResult.error)toast(pageResult.error.message,true);
+  }
+
   updateCategoryDocumentMeta();
 }
 
@@ -1363,26 +1549,13 @@ function mediaBlockField(block,content) {
             <div class="category-media-loading"><i data-lucide="image"></i></div>
           </div>
           <div class="category-photo-card-copy">
-            <input class="category-photo-card-title" type="text" placeholder="Photo title" value="${esc(content.title||"")}">
-            <textarea class="category-photo-card-caption" rows="2" placeholder="Add a note...">${esc(content.caption||"")}</textarea>
+            <div class="category-photo-card-title">${esc(categoryCardContentPage(block)?.title||content.title||"Photo title")}</div>
+            <div class="category-photo-card-caption">${esc(content.caption||"Open to add content")}</div>
+            <div class="category-card-open-hint"><span>Open card</span><i data-lucide="chevron-right"></i></div>
           </div>
         </div>
       `;
-
-      let timer;
-      const saveCard=()=>{
-        clearTimeout(timer);
-        timer=setTimeout(()=>{
-          content={
-            ...content,
-            title:wrap.querySelector(".category-photo-card-title")?.value||"",
-            caption:wrap.querySelector(".category-photo-card-caption")?.value||""
-          };
-          updateCategoryBlock(block,{content});
-        },300);
-      };
-      wrap.querySelector(".category-photo-card-title")?.addEventListener("input",saveCard);
-      wrap.querySelector(".category-photo-card-caption")?.addEventListener("input",saveCard);
+      wrap.classList.add("category-card-preview");
       return wrap;
     }
 
@@ -1673,28 +1846,21 @@ function categoryRichContentAtCaret(field) {
 
 function textCardBlockField(block,content) {
   const wrap=document.createElement("div");
-  wrap.className="category-text-card card-style-"+categoryCardStyle(block);
+  wrap.className="category-text-card card-style-"+categoryCardStyle(block)+" category-card-preview";
+
+  const page=categoryCardContentPage(block);
+  const title=page?.title||content.title||"Card title";
+  const pageBlocks=page
+    ? (state.categoryBlocks||[]).filter(x=>x.category===activeCategory && (x.page_id||null)===page.id)
+    : [];
+  const firstText=pageBlocks.map(x=>normalizeBlockContent(x).text||normalizeBlockContent(x).caption||"").find(Boolean);
+  const preview=firstText||content.text||"Open to add content";
 
   wrap.innerHTML=`
-    <input class="category-text-card-title" type="text" placeholder="Card title" value="${esc(content.title||"")}">
-    <textarea class="category-text-card-body" rows="4" placeholder="Write something...">${esc(content.text||"")}</textarea>
+    <div class="category-text-card-title">${esc(title)}</div>
+    <div class="category-text-card-body">${esc(preview)}</div>
+    <div class="category-card-open-hint"><span>Open card</span><i data-lucide="chevron-right"></i></div>
   `;
-
-  let timer;
-  const save=()=>{
-    clearTimeout(timer);
-    timer=setTimeout(()=>{
-      content={
-        ...content,
-        title:wrap.querySelector(".category-text-card-title")?.value||"",
-        text:wrap.querySelector(".category-text-card-body")?.value||""
-      };
-      updateCategoryBlock(block,{content});
-    },300);
-  };
-
-  wrap.querySelector(".category-text-card-title")?.addEventListener("input",save);
-  wrap.querySelector(".category-text-card-body")?.addEventListener("input",save);
   return wrap;
 }
 
@@ -2015,7 +2181,11 @@ async function duplicateCategoryBlock(block) {
     page_id:block.page_id||activeCategoryPageId||null,
     type:block.type,
     content:structuredClone(normalizeBlockContent(block)),
-    settings:structuredClone(block.settings||{}),
+    settings:(()=>{
+      const settings=structuredClone(block.settings||{});
+      delete settings.content_page_id;
+      return settings;
+    })(),
     position:index+1,
     created_at:new Date().toISOString(),
     updated_at:new Date().toISOString()
@@ -2160,7 +2330,7 @@ function categoryBlockActionMenu(block,index,total) {
     <button type="button" data-action="up" ${index===0?"disabled":""}><i data-lucide="arrow-up"></i><span>Move up</span></button>
     <button type="button" data-action="down" ${index===total-1?"disabled":""}><i data-lucide="arrow-down"></i><span>Move down</span></button>
     <button type="button" data-action="duplicate"><i data-lucide="copy"></i><span>Duplicate</span></button>
-    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>'+(photoRatioItems?'<div class="category-block-convert-label">Photo shape</div><div class="category-block-card-options">'+photoRatioItems+'</div>':'') : ""}
+    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Content</div><button type="button" data-action="content"><i data-lucide="chevron-right"></i><span>Content</span></button><div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>'+(photoRatioItems?'<div class="category-block-convert-label">Photo shape</div><div class="category-block-card-options">'+photoRatioItems+'</div>':'') : ""}
     ${convertItems ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Turn into</div><div class="category-block-convert-list">'+convertItems+'</div>' : ""}
     <div class="category-block-menu-separator"></div>
     <button type="button" data-action="delete" class="danger"><i data-lucide="trash-2"></i><span>Delete</span></button>
@@ -2174,6 +2344,7 @@ function categoryBlockActionMenu(block,index,total) {
     if(button.dataset.action==="up")return moveCategoryBlock(block,-1);
     if(button.dataset.action==="down")return moveCategoryBlock(block,1);
     if(button.dataset.action==="duplicate")return duplicateCategoryBlock(block);
+    if(button.dataset.action==="content")return ensureCategoryCardPage(block,{open:true});
     if(button.dataset.action==="delete"){
       if(confirm("Delete this block?"))return deleteCategoryBlock(block);
       return;
@@ -2342,6 +2513,15 @@ function renderCategoryBlocks() {
     }
 
     bindCategoryBlockSelectionGesture(row,block);
+
+    if(isCardBlock){
+      row.classList.add("category-card-clickable");
+      row.addEventListener("click",e=>{
+        if(categoryBlockSelectionMode)return;
+        if(e.target.closest(".category-block-actions,.category-selection-actions,button,a,input,textarea,select,[contenteditable=true]"))return;
+        ensureCategoryCardPage(block,{open:true});
+      });
+    }
 
     rail.querySelector(".category-block-more")?.addEventListener("click",e=>{
       e.stopPropagation();
@@ -2627,7 +2807,7 @@ function renderCategorySubpages() {
   if(!holder)return;
 
   const current=currentCategoryPage();
-  const children=categoryPageChildren();
+  const children=categoryPageChildren().filter(page=>!categoryCardBlockForContentPage(page.id));
   if(title)title.textContent=current ? "Subpages in "+current.title : "Subpages";
 
   holder.innerHTML="";
