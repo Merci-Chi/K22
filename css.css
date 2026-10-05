@@ -936,8 +936,7 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   align-items:flex-end;
   gap:12px;
 }
-.category-page-section .category-section-title small,
-.category-page-files .attachment-head small{
+.category-page-section .category-section-title small{
   display:block;
   margin-bottom:2px;
   color:#a19a93;
@@ -946,8 +945,7 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   font-weight:800;
   letter-spacing:.09em;
 }
-.category-page-section .category-section-title h2,
-.category-page-files .attachment-head h2{
+.category-page-section .category-section-title h2{
   margin:0;
   font-family:Georgia,serif;
   font-size:23px;
@@ -997,7 +995,6 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   align-items:center;
   gap:7px;
 }
-.category-page-files .attachment-head h2 svg{width:17px;height:17px}
 
 @media(max-width:820px){
   .category-page-topbar{
@@ -2012,7 +2009,7 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 
 .category-selection-actions{
   position:absolute;
-  right:-76px;
+  right:-42px;
   top:50%;
   transform:translateY(-50%);
   display:flex;
@@ -2068,7 +2065,7 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
   }
 
   .category-block.selected{
-    padding-right:82px;
+    padding-right:46px;
   }
 }
 
@@ -2430,5 +2427,24 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 
   .category-photo-card-title{
     font-size:16px;
+  }
+}
+
+
+/* Batch 3 — delete-only selection and files-section cleanup */
+.category-selection-actions{
+  right:-42px;
+  gap:0;
+}
+.category-selection-actions .category-selection-delete{
+  width:34px;
+  height:34px;
+}
+@media(max-width:900px){
+  .category-selection-actions{
+    right:6px;
+  }
+  .category-block.selected{
+    padding-right:46px;
   }
 }
