@@ -1,14 +1,64 @@
 // K22 — Individual category page / Craft-style editor
 
+let activeCategoryPageId=null;
+
+function categoryPageRecord(id) {
+  return (state.categoryPages||[]).find(page=>page.id===id)||null;
+}
+
+function categoryPageChildren(parentId=activeCategoryPageId) {
+  return (state.categoryPages||[])
+    .filter(page=>
+      page.category===activeCategory &&
+      (page.parent_id||null)===(parentId||null)
+    )
+    .sort((a,b)=>(a.position||0)-(b.position||0) || String(a.created_at||"").localeCompare(String(b.created_at||"")));
+}
+
+function categoryPageAncestors(pageId=activeCategoryPageId) {
+  const path=[];
+  const seen=new Set();
+  let current=categoryPageRecord(pageId);
+  while(current && !seen.has(current.id)){
+    seen.add(current.id);
+    path.unshift(current);
+    current=current.parent_id?categoryPageRecord(current.parent_id):null;
+  }
+  return path;
+}
+
+function categoryPageDescendantIds(pageId) {
+  const ids=new Set([pageId]);
+  let changed=true;
+  while(changed){
+    changed=false;
+    (state.categoryPages||[]).forEach(page=>{
+      if(page.parent_id && ids.has(page.parent_id) && !ids.has(page.id)){
+        ids.add(page.id);
+        changed=true;
+      }
+    });
+  }
+  return ids;
+}
+
+function currentCategoryPage() {
+  return activeCategoryPageId?categoryPageRecord(activeCategoryPageId):null;
+}
+
 function setupCategoryPage() {
   if(document.body.dataset.page!=="category")return;
   const params=new URLSearchParams(location.search);
   const requested=params.get("name");
+  const requestedPage=params.get("page");
   if(!requested || !CATEGORY_PAGE_META[requested]){
     location.replace("../categories/categories.html");
     return;
   }
-  openCategory(requested,{replaceUrl:true});
+
+  const page=requestedPage?categoryPageRecord(requestedPage):null;
+  const validPage=page && page.category===requested ? page.id : null;
+  openCategory(requested,{replaceUrl:true,pageId:validPage});
 }
 
 function updateCategoryDocumentMeta() {
