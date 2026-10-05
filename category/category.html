@@ -43,56 +43,24 @@
 
       <article class="category-document">
         <div id="categoryPageSkeleton" class="category-page-skeleton" aria-hidden="true">
-          <div class="category-skeleton-cover"></div>
-          <div class="category-skeleton-header">
-            <div class="category-skeleton-line skeleton-w-20"></div>
-            <div class="category-skeleton-line skeleton-title"></div>
-            <div class="category-skeleton-line skeleton-w-46"></div>
-            <div class="category-skeleton-line skeleton-w-28"></div>
-          </div>
-          <div class="category-skeleton-body">
-            <div class="category-skeleton-line skeleton-w-16"></div>
-            <div class="category-skeleton-document">
-              <div class="category-skeleton-line skeleton-w-24"></div>
-              <div class="category-skeleton-grid">
-                <div class="category-skeleton-card tall"></div>
-                <div class="category-skeleton-card medium"></div>
-                <div class="category-skeleton-card tall"></div>
-                <div class="category-skeleton-card short"></div>
-              </div>
+          <div class="category-skeleton-body category-skeleton-body-only">
+            <div class="category-skeleton-grid">
+              <div class="category-skeleton-card tall"></div>
+              <div class="category-skeleton-card medium"></div>
+              <div class="category-skeleton-card tall"></div>
+              <div class="category-skeleton-card short"></div>
+              <div class="category-skeleton-card medium"></div>
+              <div class="category-skeleton-card short"></div>
             </div>
           </div>
         </div>
 
-        <section class="category-cover" id="categoryCover">
-          <div class="category-cover-pattern"></div>
-          <div class="category-cover-icon" id="categoryPageIcon"><i data-lucide="folder-open"></i></div>
-        </section>
-
-        <header class="category-document-header">
-          <div class="category-document-kicker">K22 Category</div>
-          <h1 id="categoryPageTitle"></h1>
-          <p id="categoryPageDescription"></p>
-          <div class="category-page-meta">
-            <span><i data-lucide="clock-3"></i><span id="categoryLastEdited" aria-live="polite"></span></span>
-            <span><i data-lucide="blocks"></i><span id="categoryBlockCount" aria-live="polite"></span></span>
-          </div>
-        </header>
-
-        <nav id="categoryBreadcrumb" class="category-breadcrumb" aria-label="Category breadcrumb"></nav>
-
         <section class="category-document-body">
           <section class="category-page-section category-block-editor-section">
-            <div class="category-section-title category-editor-title">
-              <div>
-                <small>Document</small>
-                <h2></h2>
-              </div>
-              <div class="category-editor-tools">
-                <button id="applyCategoryTemplate" class="category-template-btn" type="button"><i data-lucide="wand-sparkles"></i><span>Starter Template</span></button>
-                <button id="toggleCategoryOutline" class="category-outline-toggle" type="button"><i data-lucide="list-tree"></i><span>Outline</span></button>
-                <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
-              </div>
+            <div class="category-editor-tools category-editor-tools-only">
+              <button id="applyCategoryTemplate" class="category-template-btn" type="button"><i data-lucide="wand-sparkles"></i><span>Starter Template</span></button>
+              <button id="toggleCategoryOutline" class="category-outline-toggle" type="button"><i data-lucide="list-tree"></i><span>Outline</span></button>
+              <span class="category-autosave-label"><i data-lucide="cloud-check"></i> Auto-saves</span>
             </div>
 
             <aside id="categoryOutline" class="category-outline hidden">
