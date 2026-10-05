@@ -121,7 +121,7 @@ async function syncCategoryPageTitle(page,title) {
 
   if(result.error)toast(result.error.message,true);
   renderCategoryBreadcrumb();
-  renderCategorySubpages();
+  renderCategoryBreadcrumb();
   document.title=next+" — K22";
 }
 
@@ -215,7 +215,7 @@ async function ensureCategoryCardPage(block,{open=true}={}) {
     }
   }
 
-  renderCategorySubpages();
+  renderCategoryBreadcrumb();
   if(open)openCategory(activeCategory,{pageId:page.id});
   return page;
 }
@@ -2701,10 +2701,6 @@ function bindCategoryBlockMenu() {
   });
 }
 
-function categorySubpageUrl(category,pageId=null) {
-  return categoryPageUrl(category,pageId);
-}
-
 function renderCategoryBreadcrumb() {
   const holder=document.getElementById("categoryBreadcrumb");
   if(!holder)return;
@@ -2727,173 +2723,6 @@ function renderCategoryBreadcrumb() {
       openCategory(activeCategory,{pageId:btn.dataset.pageId||null});
     });
   });
-  icons();
-}
-
-async function createCategorySubpage() {
-  if(!currentUser||!activeCategory)return;
-  const title=prompt("Subpage name");
-  if(!title?.trim())return;
-
-  const siblings=categoryPageChildren();
-  const row={
-    id:crypto.randomUUID(),
-    user_id:currentUser.id,
-    category:activeCategory,
-    title:title.trim(),
-    parent_id:activeCategoryPageId||null,
-    position:siblings.length,
-    created_at:new Date().toISOString(),
-    updated_at:new Date().toISOString()
-  };
-
-  state.categoryPages.push(row);
-  saveOfflineCache();
-  renderCategorySubpages();
-
-  const result=await commitMutation({
-    table:"category_pages",action:"insert",payload:row
-  },[row]);
-
-  if(result.error){
-    state.categoryPages=state.categoryPages.filter(x=>x.id!==row.id);
-    saveOfflineCache();
-    renderCategorySubpages();
-    return toast(result.error.message,true);
-  }
-  if(result.data?.[0])Object.assign(row,result.data[0]);
-
-  renderCategorySubpages();
-  toast("Subpage created");
-}
-
-async function renameCategorySubpage(page) {
-  const title=prompt("Rename subpage",page.title||"");
-  if(!title?.trim() || title.trim()===page.title)return;
-
-  const previous=page.title;
-  page.title=title.trim();
-  page.updated_at=new Date().toISOString();
-  saveOfflineCache();
-  renderCategorySubpages();
-  if(activeCategoryPageId===page.id)updateCategoryDocumentMeta();
-
-  const result=await commitMutation({
-    table:"category_pages",
-    action:"update",
-    payload:{title:page.title,updated_at:page.updated_at},
-    match:{id:page.id}
-  },[page]);
-
-  if(result.error){
-    page.title=previous;
-    saveOfflineCache();
-    renderCategorySubpages();
-    updateCategoryDocumentMeta();
-    return toast(result.error.message,true);
-  }
-  toast("Subpage renamed");
-}
-
-async function deleteCategorySubpage(page) {
-  const descendants=categoryPageDescendantIds(page.id);
-  const childCount=descendants.size-1;
-  const message=childCount
-    ? 'Delete "'+page.title+'" and its '+childCount+' nested subpage'+(childCount===1?"":"s")+'? All blocks inside them will also be deleted.'
-    : 'Delete "'+page.title+'"? All blocks inside it will also be deleted.';
-  if(!confirm(message))return;
-
-  const pagesBefore=[...(state.categoryPages||[])];
-  const blocksBefore=[...(state.categoryBlocks||[])];
-
-  state.categoryPages=(state.categoryPages||[]).filter(x=>!descendants.has(x.id));
-  state.categoryBlocks=(state.categoryBlocks||[]).filter(x=>!x.page_id || !descendants.has(x.page_id));
-  saveOfflineCache();
-  renderCategorySubpages();
-  renderCategoryBlocks();
-
-  const result=await commitMutation({
-    table:"category_pages",action:"delete",match:{id:page.id}
-  });
-
-  if(result.error){
-    state.categoryPages=pagesBefore;
-    state.categoryBlocks=blocksBefore;
-    saveOfflineCache();
-    renderCategorySubpages();
-    renderCategoryBlocks();
-    return toast(result.error.message,true);
-  }
-
-  if(descendants.has(activeCategoryPageId)){
-    const parentId=page.parent_id||null;
-    openCategory(activeCategory,{pageId:parentId,replaceUrl:true});
-  }else{
-    renderCategorySubpages();
-  }
-  toast("Subpage deleted");
-}
-
-function renderCategorySubpages() {
-  const holder=document.getElementById("categorySubpages");
-  const empty=document.getElementById("categorySubpagesEmpty");
-  const title=document.getElementById("categorySubpagesTitle");
-  if(!holder)return;
-
-  const current=currentCategoryPage();
-  const children=categoryPageChildren().filter(page=>!categoryCardBlockForContentPage(page.id));
-  if(title)title.textContent=current ? "Subpages in "+current.title : "Subpages";
-
-  holder.innerHTML="";
-
-  children.forEach(page=>{
-    const card=document.createElement("article");
-    card.className="category-subpage-card";
-    const childCount=categoryPageChildren(page.id).length;
-    const blockCount=(state.categoryBlocks||[]).filter(block=>
-      block.category===activeCategory &&
-      (block.page_id||null)===page.id
-    ).length;
-
-    card.innerHTML=
-      '<button type="button" class="category-subpage-open">'+
-        '<span class="category-subpage-icon"><i data-lucide="file-text"></i></span>'+
-        '<span class="category-subpage-copy">'+
-          '<b>'+esc(page.title)+'</b>'+
-          '<small>'+blockCount+' '+(blockCount===1?'block':'blocks')+
-            (childCount?' · '+childCount+' subpage'+(childCount===1?'':'s'):'')+
-          '</small>'+
-        '</span>'+
-        '<i data-lucide="chevron-right"></i>'+
-      '</button>'+
-      '<div class="category-subpage-actions">'+
-        '<button type="button" data-action="rename" aria-label="Rename '+esc(page.title)+'"><i data-lucide="pencil"></i></button>'+
-        '<button type="button" data-action="delete" aria-label="Delete '+esc(page.title)+'"><i data-lucide="trash-2"></i></button>'+
-      '</div>';
-
-    card.querySelector(".category-subpage-open").addEventListener("click",()=>{
-      openCategory(activeCategory,{pageId:page.id});
-    });
-    card.querySelector('[data-action="rename"]').addEventListener("click",()=>renameCategorySubpage(page));
-    card.querySelector('[data-action="delete"]').addEventListener("click",()=>deleteCategorySubpage(page));
-    holder.appendChild(card);
-  });
-
-  const addCard=document.createElement("button");
-  addCard.type="button";
-  addCard.id="addCategorySubpage";
-  addCard.className="category-subpage-card category-subpage-new-card";
-  addCard.innerHTML=
-    '<span class="category-subpage-icon"><i data-lucide="plus"></i></span>'+
-    '<span class="category-subpage-copy"><b>New Subpage</b><small>Create a page inside '+esc(current?.title||activeCategory)+'</small></span>';
-  addCard.addEventListener("click",createCategorySubpage);
-  holder.appendChild(addCard);
-
-  if(empty){
-    empty.classList.add("hidden");
-  }
-
-  renderCategoryBreadcrumb();
   icons();
 }
 
@@ -2950,7 +2779,7 @@ function openCategory(category, options={}) {
 
   updateCategoryDocumentMeta();
   bindCategoryPageBackButton();
-  renderCategorySubpages();
+  renderCategoryBreadcrumb();
 
   migrateCategoryLegacyToBlocks(category).then(()=>{
     renderCategoryBlocks();
