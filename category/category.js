@@ -719,7 +719,7 @@ function queueCategoryBlockSave(block,payload) {
   return task;
 }
 
-async function createCategoryBlock(type="paragraph", afterId=null) {
+async function createCategoryBlock(type="paragraph", afterId=null, initialContent=null) {
   if(!categoryBlocksAvailable){
     toast("Run the Batch 2 category_blocks SQL first",true);
     return null;
@@ -742,13 +742,15 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
     row.updated_at=new Date().toISOString();
   });
 
-  const content=type==="checklist"
-    ? {text:"",checked:false}
-    : type==="link"
-      ? {text:"",url:""}
-      : type==="columns"
-        ? {text:"",left:"",right:""}
-        : {text:""};
+  const content=initialContent
+    ? {...initialContent}
+    : type==="checklist"
+      ? {text:"",checked:false}
+      : type==="link"
+        ? {text:"",url:""}
+        : type==="columns"
+          ? {text:"",left:"",right:""}
+          : {text:""};
 
   const local={
     id:crypto.randomUUID(),user_id:currentUser.id,category:activeCategory,page_id:activeCategoryPageId||null,type,
@@ -1240,6 +1242,44 @@ function bindCategoryOutline(){
   }
 }
 
+function categoryRichContentAtCaret(field) {
+  const selection=window.getSelection();
+  if(!selection?.rangeCount)return null;
+
+  const caret=selection.getRangeAt(0);
+  if(!caret.collapsed || !field.contains(caret.startContainer))return null;
+
+  const before=document.createRange();
+  before.selectNodeContents(field);
+  before.setEnd(caret.startContainer,caret.startOffset);
+
+  const after=document.createRange();
+  after.selectNodeContents(field);
+  after.setStart(caret.startContainer,caret.startOffset);
+
+  const htmlFromFragment=fragment=>{
+    const holder=document.createElement("div");
+    holder.appendChild(fragment);
+    return sanitizeRichBlockHtml(holder.innerHTML);
+  };
+
+  const beforeHtml=htmlFromFragment(before.cloneContents());
+  const afterHtml=htmlFromFragment(after.cloneContents());
+
+  const textFromHtml=html=>{
+    const holder=document.createElement("div");
+    holder.innerHTML=html;
+    return (holder.innerText||holder.textContent||"")
+      .replace(/\u00a0/g," ")
+      .trimEnd();
+  };
+
+  return {
+    before:{text:textFromHtml(beforeHtml),html:beforeHtml},
+    after:{text:textFromHtml(afterHtml),html:afterHtml}
+  };
+}
+
 function categoryBlockField(block, content) {
   if(block.type==="section")return sectionBlockField(block,content);
   if(block.type==="columns")return columnsBlockField(block,content);
@@ -1354,6 +1394,41 @@ function categoryBlockField(block, content) {
 
     const isListRow=["bullet","numbered","checklist"].includes(block.type);
     if(!isListRow){
+      // Plain Enter creates a brand-new block. Shift+Enter is the only
+      // way to make another line inside this same block.
+      if(
+        e.key==="Enter" &&
+        !e.shiftKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ){
+        e.preventDefault();
+        if(e.repeat || field.dataset.blockActionBusy==="1")return;
+        field.dataset.blockActionBusy="1";
+        clearTimeout(timer);
+
+        try{
+          const split=categoryRichContentAtCaret(field);
+          const currentHtml=split?.before?.html ?? sanitizeRichBlockHtml(field.innerHTML);
+          const currentText=split?.before?.text ?? blockPlainText(field);
+          const trailing=split?.after ?? {text:"",html:""};
+
+          content={...content,text:currentText,html:currentHtml};
+          await updateCategoryBlock(block,{content});
+
+          await createCategoryBlock("paragraph",block.id,{
+            text:trailing.text||"",
+            html:trailing.html||""
+          });
+        } finally {
+          field.dataset.blockActionBusy="0";
+        }
+        return;
+      }
+
+      if(e.key==="Enter" && e.shiftKey)return;
+
       if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
         e.preventDefault();
         await createCategoryBlock("paragraph",block.id);
