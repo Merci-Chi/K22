@@ -1683,19 +1683,6 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
 
 
 @media (max-width:650px){
-
-
-
-
-
-
-
-
-
-
-
-
-@media (max-width:650px){
   .category-breadcrumb{
     flex-wrap:nowrap;
     overflow-x:auto;
@@ -2884,11 +2871,9 @@ body.category-initial-loading .category-page-skeleton{
 }
 
 .category-page-skeleton .category-skeleton-line,
-.category-page-skeleton .category-skeleton-cover,
-.category-page-skeleton .category-skeleton-card,
-.category-page-skeleton .category-skeleton-cover{
-  height:132px;
-  border-radius:22px 22px 0 0;
+.category-page-skeleton .category-skeleton-card{
+  background:#eeeae6;
+  animation:k22SkeletonPulse 1.25s ease-in-out infinite;
 }
 
 .category-skeleton-header{
