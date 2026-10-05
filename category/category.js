@@ -49,6 +49,12 @@ function currentCategoryPage() {
   return activeCategoryPageId?categoryPageRecord(activeCategoryPageId):null;
 }
 
+function finishCategoryInitialLoading() {
+  if(document.body.dataset.page!=="category")return;
+  document.body.classList.remove("category-initial-loading");
+  document.getElementById("categoryPageSkeleton")?.setAttribute("hidden","");
+}
+
 function setupCategoryPage() {
   if(document.body.dataset.page!=="category")return;
   const params=new URLSearchParams(location.search);
@@ -62,6 +68,7 @@ function setupCategoryPage() {
   const page=requestedPage?categoryPageRecord(requestedPage):null;
   const validPage=page && page.category===requested ? page.id : null;
   openCategory(requested,{replaceUrl:true,pageId:validPage});
+  requestAnimationFrame(()=>finishCategoryInitialLoading());
 }
 
 function searchSafeCategoryPathLabel(page) {
