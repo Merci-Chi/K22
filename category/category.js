@@ -1826,25 +1826,214 @@ function resetCategoryForm() {
   renderCategorySpecialFields();
 }
 
+
+function categorySubpageUrl(category,pageId=null) {
+  return categoryPageUrl(category,pageId);
+}
+
+function renderCategoryBreadcrumb() {
+  const holder=document.getElementById("categoryBreadcrumb");
+  if(!holder)return;
+
+  const parts=[
+    {title:activeCategory,pageId:null},
+    ...categoryPageAncestors().map(page=>({title:page.title,pageId:page.id}))
+  ];
+
+  holder.innerHTML=parts.map((part,index)=>{
+    const last=index===parts.length-1;
+    return (index?'<i data-lucide="chevron-right"></i>':'')+
+      (last
+        ? '<span class="current">'+esc(part.title)+'</span>'
+        : '<button type="button" data-page-id="'+esc(part.pageId||"")+'">'+esc(part.title)+'</button>');
+  }).join("");
+
+  holder.querySelectorAll("[data-page-id]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      openCategory(activeCategory,{pageId:btn.dataset.pageId||null});
+    });
+  });
+  icons();
+}
+
+async function createCategorySubpage() {
+  if(!currentUser||!activeCategory)return;
+  const title=prompt("Subpage name");
+  if(!title?.trim())return;
+
+  const siblings=categoryPageChildren();
+  const row={
+    id:crypto.randomUUID(),
+    user_id:currentUser.id,
+    category:activeCategory,
+    title:title.trim(),
+    parent_id:activeCategoryPageId||null,
+    position:siblings.length,
+    created_at:new Date().toISOString(),
+    updated_at:new Date().toISOString()
+  };
+
+  state.categoryPages.push(row);
+  saveOfflineCache();
+  renderCategorySubpages();
+
+  const result=await commitMutation({
+    table:"category_pages",action:"insert",payload:row
+  },[row]);
+
+  if(result.error){
+    state.categoryPages=state.categoryPages.filter(x=>x.id!==row.id);
+    saveOfflineCache();
+    renderCategorySubpages();
+    return toast(result.error.message,true);
+  }
+  if(result.data?.[0])Object.assign(row,result.data[0]);
+
+  renderCategorySubpages();
+  toast("Subpage created");
+}
+
+async function renameCategorySubpage(page) {
+  const title=prompt("Rename subpage",page.title||"");
+  if(!title?.trim() || title.trim()===page.title)return;
+
+  const previous=page.title;
+  page.title=title.trim();
+  page.updated_at=new Date().toISOString();
+  saveOfflineCache();
+  renderCategorySubpages();
+  if(activeCategoryPageId===page.id)updateCategoryDocumentMeta();
+
+  const result=await commitMutation({
+    table:"category_pages",
+    action:"update",
+    payload:{title:page.title,updated_at:page.updated_at},
+    match:{id:page.id}
+  },[page]);
+
+  if(result.error){
+    page.title=previous;
+    saveOfflineCache();
+    renderCategorySubpages();
+    updateCategoryDocumentMeta();
+    return toast(result.error.message,true);
+  }
+  toast("Subpage renamed");
+}
+
+async function deleteCategorySubpage(page) {
+  const descendants=categoryPageDescendantIds(page.id);
+  const childCount=descendants.size-1;
+  const message=childCount
+    ? 'Delete "'+page.title+'" and its '+childCount+' nested subpage'+(childCount===1?"":"s")+'? All blocks inside them will also be deleted.'
+    : 'Delete "'+page.title+'"? All blocks inside it will also be deleted.';
+  if(!confirm(message))return;
+
+  const pagesBefore=[...(state.categoryPages||[])];
+  const blocksBefore=[...(state.categoryBlocks||[])];
+
+  state.categoryPages=(state.categoryPages||[]).filter(x=>!descendants.has(x.id));
+  state.categoryBlocks=(state.categoryBlocks||[]).filter(x=>!x.page_id || !descendants.has(x.page_id));
+  saveOfflineCache();
+  renderCategorySubpages();
+  renderCategoryBlocks();
+
+  const result=await commitMutation({
+    table:"category_pages",action:"delete",match:{id:page.id}
+  });
+
+  if(result.error){
+    state.categoryPages=pagesBefore;
+    state.categoryBlocks=blocksBefore;
+    saveOfflineCache();
+    renderCategorySubpages();
+    renderCategoryBlocks();
+    return toast(result.error.message,true);
+  }
+
+  if(descendants.has(activeCategoryPageId)){
+    const parentId=page.parent_id||null;
+    openCategory(activeCategory,{pageId:parentId,replaceUrl:true});
+  }else{
+    renderCategorySubpages();
+  }
+  toast("Subpage deleted");
+}
+
+function renderCategorySubpages() {
+  const holder=document.getElementById("categorySubpages");
+  const empty=document.getElementById("categorySubpagesEmpty");
+  const add=document.getElementById("addCategorySubpage");
+  const title=document.getElementById("categorySubpagesTitle");
+  const files=document.querySelector(".category-page-files");
+  if(!holder)return;
+
+  const current=currentCategoryPage();
+  const children=categoryPageChildren();
+  if(title)title.textContent=current ? "Subpages in "+current.title : "Subpages";
+  if(files)files.classList.toggle("hidden",!!activeCategoryPageId);
+
+  holder.innerHTML="";
+  children.forEach(page=>{
+    const card=document.createElement("article");
+    card.className="category-subpage-card";
+    const childCount=categoryPageChildren(page.id).length;
+    card.innerHTML=
+      '<button type="button" class="category-subpage-open">'+
+        '<span class="category-subpage-icon"><i data-lucide="file-text"></i></span>'+
+        '<span class="category-subpage-copy"><b>'+esc(page.title)+'</b><small>'+childCount+' subpage'+(childCount===1?"":"s")+'</small></span>'+
+        '<i data-lucide="chevron-right"></i>'+
+      '</button>'+
+      '<div class="category-subpage-actions">'+
+        '<button type="button" data-action="rename" aria-label="Rename"><i data-lucide="pencil"></i></button>'+
+        '<button type="button" data-action="delete" aria-label="Delete"><i data-lucide="trash-2"></i></button>'+
+      '</div>';
+
+    card.querySelector(".category-subpage-open").addEventListener("click",()=>{
+      openCategory(activeCategory,{pageId:page.id});
+    });
+    card.querySelector('[data-action="rename"]').addEventListener("click",()=>renameCategorySubpage(page));
+    card.querySelector('[data-action="delete"]').addEventListener("click",()=>deleteCategorySubpage(page));
+    holder.appendChild(card);
+  });
+
+  empty?.classList.toggle("hidden",children.length>0);
+
+  if(add&&!add.dataset.bound){
+    add.dataset.bound="1";
+    add.addEventListener("click",createCategorySubpage);
+  }
+
+  renderCategoryBreadcrumb();
+  icons();
+}
+
 function openCategory(category, options={}) {
   if(!CATEGORY_PAGE_META[category])return;
 
   if(document.body.dataset.page!=="category"){
-    location.href=categoryPageUrl(category);
+    location.href=categoryPageUrl(category,options.pageId||null);
     return;
   }
 
   activeCategory=category;
   editingCategoryItemId=null;
 
-  const wantedUrl=categoryPageUrl(category);
-  if(!options.replaceUrl && !location.href.endsWith(wantedUrl)){
-    history.pushState({category},"",wantedUrl);
+  const requestedPage=options.pageId||null;
+  const page=requestedPage?categoryPageRecord(requestedPage):null;
+  activeCategoryPageId=page && page.category===category ? page.id : null;
+
+  const wantedUrl=categoryPageUrl(category,activeCategoryPageId);
+  const currentUrl=new URL(location.href);
+  const targetUrl=new URL(wantedUrl);
+  if(!options.replaceUrl && currentUrl.href!==targetUrl.href){
+    history.pushState({category,pageId:activeCategoryPageId},"",wantedUrl);
   }else if(options.replaceUrl){
-    history.replaceState({category},"",wantedUrl);
+    history.replaceState({category,pageId:activeCategoryPageId},"",wantedUrl);
   }
 
   updateCategoryDocumentMeta();
+  renderCategorySubpages();
   renderCategoryAttachments();
 
   migrateCategoryLegacyToBlocks(category).then(()=>{
@@ -1857,8 +2046,12 @@ function openCategory(category, options={}) {
 
 window.addEventListener("popstate",()=>{
   if(document.body.dataset.page!=="category")return;
-  const category=new URLSearchParams(location.search).get("name");
-  if(category&&CATEGORY_PAGE_META[category])openCategory(category,{replaceUrl:true});
+  const params=new URLSearchParams(location.search);
+  const category=params.get("name");
+  const pageId=params.get("page");
+  if(category&&CATEGORY_PAGE_META[category]){
+    openCategory(category,{replaceUrl:true,pageId});
+  }
 });
 
 function closeCategory() {
