@@ -2218,6 +2218,43 @@ function revealCategoryBlockForSearch(blockId) {
   return true;
 }
 
+const categoryCardGridObservers=new WeakMap();
+
+function layoutCategoryCardGrid(grid) {
+  if(!grid || !document.body.contains(grid))return;
+  requestAnimationFrame(()=>{
+    const styles=getComputedStyle(grid);
+    const rowHeight=parseFloat(styles.gridAutoRows)||8;
+    const rowGap=parseFloat(styles.rowGap)||10;
+
+    grid.querySelectorAll(":scope > .category-card-grid-item").forEach(item=>{
+      item.style.gridRowEnd="auto";
+      const height=item.getBoundingClientRect().height;
+      const span=Math.max(1,Math.ceil((height+rowGap)/(rowHeight+rowGap)));
+      item.style.gridRowEnd="span "+span;
+    });
+  });
+}
+
+function setupCategoryCardGrid(grid) {
+  if(!grid || categoryCardGridObservers.has(grid))return;
+
+  const observer=new ResizeObserver(()=>layoutCategoryCardGrid(grid));
+  grid.querySelectorAll(":scope > .category-card-grid-item").forEach(item=>observer.observe(item));
+  observer.observe(grid);
+  categoryCardGridObservers.set(grid,observer);
+
+  grid.querySelectorAll("img").forEach(img=>{
+    if(!img.complete)img.addEventListener("load",()=>layoutCategoryCardGrid(grid),{once:true});
+  });
+
+  layoutCategoryCardGrid(grid);
+}
+
+function refreshCategoryCardGrids() {
+  document.querySelectorAll(".category-card-grid").forEach(grid=>setupCategoryCardGrid(grid));
+}
+
 function renderCategoryBlocks() {
   const canvas=document.getElementById("categoryBlockCanvas");
   const empty=document.getElementById("categoryBlockEmpty");
@@ -2372,6 +2409,7 @@ function renderCategoryBlocks() {
     }
   });
 
+  refreshCategoryCardGrids();
   renderCategoryBulkToolbar();
   bindCategoryBlockMenu();
   bindCategoryOutline();
