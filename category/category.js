@@ -522,6 +522,28 @@ async function migrateCategoryLegacyToBlocks(category) {
 function sanitizeRichBlockHtml(html) {
   const template=document.createElement("template");
   template.innerHTML=html||"";
+
+  // Safari/contenteditable may represent a soft line break as sibling DIV/P
+  // wrappers. Convert those visual rows into BRs before stripping wrappers,
+  // otherwise "Test\nTest" can be flattened into "TestTest" on save.
+  const normalizeBlockWrappers=root=>{
+    [...root.querySelectorAll("div,p")].forEach(block=>{
+      const parent=block.parentNode;
+      if(!parent)return;
+
+      const fragment=document.createDocumentFragment();
+      [...block.childNodes].forEach(node=>fragment.appendChild(node));
+
+      // A block after existing content starts on a new visual line.
+      if(block.previousSibling){
+        fragment.insertBefore(document.createElement("br"),fragment.firstChild);
+      }
+
+      parent.replaceChild(fragment,block);
+    });
+  };
+  normalizeBlockWrappers(template.content);
+
   const allowed=new Set(["B","STRONG","I","EM","U","S","STRIKE","CODE","A","SPAN","BR"]);
   const walk=node=>{
     [...node.children].forEach(child=>{
@@ -553,11 +575,40 @@ function sanitizeRichBlockHtml(html) {
     });
   };
   walk(template.content);
-  return template.innerHTML;
+
+  // Zero-width caret anchors are editor-only and should never persist.
+  return template.innerHTML.replace(/\u200B/g,"");
 }
 
 function blockPlainText(field) {
-  return (field.innerText||"").replace(/\u00a0/g," ").trimEnd();
+  return (field.innerText||"")
+    .replace(/\u200B/g,"")
+    .replace(/\u00a0/g," ")
+    .trimEnd();
+}
+
+function insertCategorySoftBreak(field) {
+  const selection=window.getSelection();
+  if(!selection?.rangeCount)return false;
+
+  const range=selection.getRangeAt(0);
+  if(!field.contains(range.startContainer))return false;
+
+  range.deleteContents();
+
+  const br=document.createElement("br");
+  const caret=document.createTextNode("\u200B");
+  range.insertNode(br);
+  br.after(caret);
+
+  const next=document.createRange();
+  next.setStart(caret,1);
+  next.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(next);
+
+  field.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertLineBreak"}));
+  return true;
 }
 
 function ensureRichTextToolbar() {
@@ -1427,7 +1478,11 @@ function categoryBlockField(block, content) {
       }
 
       // Shift+Enter is a soft line break inside this SAME block.
-      if(e.key==="Enter" && e.shiftKey)return;
+      if(e.key==="Enter" && e.shiftKey){
+        e.preventDefault();
+        insertCategorySoftBreak(field);
+        return;
+      }
 
       if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
         e.preventDefault();
@@ -1437,7 +1492,11 @@ function categoryBlockField(block, content) {
     }
 
     // Shift+Enter stays inside this row as a soft line break.
-    if(e.key==="Enter" && e.shiftKey)return;
+    if(e.key==="Enter" && e.shiftKey){
+      e.preventDefault();
+      insertCategorySoftBreak(field);
+      return;
+    }
 
     // Enter on a list row behaves like Craft.
     if(e.key==="Enter" && !e.metaKey && !e.ctrlKey && !e.altKey){
