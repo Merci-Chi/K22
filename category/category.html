@@ -96,6 +96,36 @@
               <div id="categoryOutlineItems" class="category-outline-items"></div>
             </aside>
 
+            <div id="categoryBulkToolbar" class="category-bulk-toolbar hidden" aria-live="polite">
+              <div class="category-bulk-summary">
+                <i data-lucide="check-square-2"></i>
+                <b id="categoryBulkCount">0 selected</b>
+              </div>
+              <div class="category-bulk-actions">
+                <button id="categoryBulkSelectAll" type="button"><i data-lucide="list-checks"></i><span>Select all</span></button>
+                <label class="category-bulk-convert">
+                  <i data-lucide="replace"></i>
+                  <select id="categoryBulkConvert" aria-label="Change selected block type">
+                    <option value="">Turn into...</option>
+                    <option value="paragraph">Text</option>
+                    <option value="heading1">Heading 1</option>
+                    <option value="heading2">Heading 2</option>
+                    <option value="heading3">Heading 3</option>
+                    <option value="bullet">Bullet</option>
+                    <option value="numbered">Numbered</option>
+                    <option value="checklist">Checklist</option>
+                    <option value="quote">Quote</option>
+                    <option value="callout">Highlight</option>
+                    <option value="link">Link</option>
+                    <option value="code">Code</option>
+                  </select>
+                </label>
+                <button id="categoryBulkDuplicate" type="button"><i data-lucide="copy"></i><span>Duplicate</span></button>
+                <button id="categoryBulkDelete" class="danger" type="button"><i data-lucide="trash-2"></i><span>Delete</span></button>
+                <button id="categoryBulkClear" class="icon-only" type="button" aria-label="Clear block selection"><i data-lucide="x"></i></button>
+              </div>
+            </div>
+
             <div id="categoryBlockCanvas" class="category-block-canvas"></div>
 
             <div id="categoryBlockEmpty" class="category-block-empty">
