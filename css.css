@@ -1899,3 +1899,50 @@ button,input,textarea{font:inherit} button{cursor:pointer} a{text-decoration:non
     height:34px;
   }
 }
+
+
+/* Final category interaction polish */
+.category-breadcrumb button:focus-visible,
+.category-subpage-open:focus-visible,
+.category-subpage-actions button:focus-visible,
+.category-subpage-add:focus-visible,
+.category-template-btn:focus-visible,
+.category-outline-toggle:focus-visible,
+.category-block-more:focus-visible,
+.category-block-drag:focus-visible,
+.category-section-collapse:focus-visible,
+.category-section-style button:focus-visible{
+  outline:2px solid currentColor;
+  outline-offset:2px;
+}
+
+.category-subpage-card:focus-within{
+  border-color:rgba(41,38,35,.2);
+  box-shadow:0 0 0 3px rgba(41,38,35,.035);
+}
+
+@media (hover:hover){
+  .category-subpage-actions{
+    opacity:.34;
+    transition:opacity .16s ease;
+  }
+  .category-subpage-card:hover .category-subpage-actions,
+  .category-subpage-card:focus-within .category-subpage-actions{
+    opacity:1;
+  }
+}
+
+@media (hover:none){
+  .category-subpage-actions{opacity:1;}
+}
+
+@media (max-width:650px){
+  .category-breadcrumb{
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scrollbar-width:none;
+    padding-bottom:3px;
+  }
+  .category-breadcrumb::-webkit-scrollbar{display:none;}
+  .category-breadcrumb>*{flex:0 0 auto;}
+}
