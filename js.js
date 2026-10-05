@@ -1279,7 +1279,7 @@ async function registerK22PWA() {
   if (!("serviceWorker" in navigator)) return;
 
   try {
-    swRegistration = await navigator.serviceWorker.register("./sw.js");
+    swRegistration = await navigator.serviceWorker.register("../sw.js");
 
     if (swRegistration.waiting && navigator.serviceWorker.controller) {
       showUpdateBanner(swRegistration);
@@ -1333,7 +1333,7 @@ function bindHeaderButtons() {
       p.innerHTML=`
         <b>Kiara</b>
         <small class="profile-email">${esc(currentUser?.email||"")}</small>
-        <a href="categories.html"><i data-lucide="layout-grid"></i> Open Categories</a>
+        <a href="../categories/categories.html"><i data-lucide="layout-grid"></i> Open Categories</a>
         <button id="accountSecurityBtn"><i data-lucide="shield-check"></i> Account & Security</button>
         <button id="backupK22Btn"><i data-lucide="database-backup"></i> Backup & Export</button>
         ${isStandaloneApp() ? "" : '<button id="installK22Btn"><i data-lucide="download"></i> Install K22 App</button>'}
