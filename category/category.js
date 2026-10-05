@@ -229,6 +229,36 @@ function updateCategoryDocumentMeta() {
   const edited=document.getElementById("categoryLastEdited");
   const meta=CATEGORY_PAGE_META[activeCategory] || {icon:"folder-open",tone:"blue",description:"Your space for everything that belongs here."};
   const activePage=currentCategoryPage();
+  const activeCardOwner=activePage?categoryCardBlockForContentPage(activePage.id):null;
+  const cardHead=document.getElementById("categoryCardContentHead");
+  const cardTitle=document.getElementById("categoryCardContentTitle");
+  document.body.classList.toggle("category-card-content-open",!!activeCardOwner);
+
+  if(cardHead && cardTitle){
+    if(activeCardOwner){
+      cardTitle.textContent=activePage?.title||"Untitled";
+      cardTitle.onkeydown=e=>{
+        if(e.key==="Enter"){
+          e.preventDefault();
+          cardTitle.blur();
+        }
+      };
+      let compactTitleTimer;
+      cardTitle.oninput=()=>{
+        clearTimeout(compactTitleTimer);
+        compactTitleTimer=setTimeout(()=>syncCategoryPageTitle(activePage,cardTitle.innerText),300);
+      };
+      cardTitle.onblur=()=>{
+        clearTimeout(compactTitleTimer);
+        syncCategoryPageTitle(activePage,cardTitle.innerText);
+      };
+    }else{
+      cardTitle.textContent="";
+      cardTitle.oninput=null;
+      cardTitle.onblur=null;
+      cardTitle.onkeydown=null;
+    }
+  }
 
   if(title){
     title.textContent=activePage?.title||activeCategory;
@@ -2727,6 +2757,15 @@ function renderCategoryBreadcrumb() {
 }
 
 function bindCategoryPageBackButton() {
+  const compactBack=document.getElementById("categoryCardContentBack");
+  if(compactBack && !compactBack.dataset.bound){
+    compactBack.dataset.bound="1";
+    compactBack.addEventListener("click",()=>{
+      const current=currentCategoryPage();
+      openCategory(activeCategory,{pageId:current?.parent_id||null});
+    });
+  }
+
   const back=document.querySelector(".category-back-btn");
   if(!back||back.dataset.bound)return;
   back.dataset.bound="1";
