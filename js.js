@@ -1062,6 +1062,7 @@ function csvRowsFor(type) {
   if(type==="routines") return state.routine.map(x=>({...x,repeat_days:JSON.stringify(x.repeat_days||[])}));
   if(type==="categories") return state.categoryItems.map(x=>({...x,details:JSON.stringify(x.details||{})}));
   if(type==="category-notes") return state.categoryNotes;
+  if(type==="category-pages") return state.categoryPages||[];
   if(type==="category-blocks") return (state.categoryBlocks||[]).map(x=>({...x,content:JSON.stringify(x.content||{}),settings:JSON.stringify(x.settings||{})}));
   if(type==="attachments") return state.attachments.map(x=>({
     file_name:x.file_name,owner_type:x.owner_type,owner_id:x.owner_id,owner_key:x.owner_key,
@@ -1122,6 +1123,7 @@ function openBackupManager() {
                 <option value="routines">Routines</option>
                 <option value="categories">Category Items</option>
                 <option value="category-notes">Category Notes</option>
+                <option value="category-pages">Category Subpages</option>
                 <option value="category-blocks">Category Blocks</option>
                 <option value="attachments">Attachment Inventory</option>
               </select>
