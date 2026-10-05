@@ -683,9 +683,25 @@ async function deleteCategoryBlock(block) {
 }
 
 function categoryNumberForBlock(block) {
-  return blocksForActiveCategory()
-    .filter(x=>x.type==="numbered" && (x.position||0)<=(block.position||0))
-    .length;
+  const rows=blocksForActiveCategory();
+  const index=rows.findIndex(x=>x.id===block.id);
+  if(index<0)return 1;
+
+  // Craft-style numbering only continues through one uninterrupted
+  // numbered-list run. A paragraph, heading, checklist, etc. resets to 1.
+  let number=1;
+  for(let i=index-1;i>=0;i--){
+    if(rows[i].type!=="numbered")break;
+    number++;
+  }
+  return number;
+}
+
+function categoryListFieldIsEmpty(field) {
+  return !blockPlainText(field)
+    .replace(/\u200B/g,"")
+    .replace(/\u00A0/g," ")
+    .trim();
 }
 
 
@@ -1169,29 +1185,87 @@ function categoryBlockField(block, content) {
   field.addEventListener("mouseup",()=>setTimeout(()=>positionRichToolbar(field),0));
   field.addEventListener("keyup",()=>setTimeout(()=>positionRichToolbar(field),0));
 
-  field.addEventListener("keydown",e=>{
+  field.addEventListener("keydown",async e=>{
     if(e.isComposing)return;
 
     const isListRow=["bullet","numbered","checklist"].includes(block.type);
+    if(!isListRow){
+      if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
+        e.preventDefault();
+        await createCategoryBlock("paragraph",block.id);
+      }
+      return;
+    }
 
-    // Craft-style list behavior:
-    // Enter creates another row of the same type directly underneath.
-    // Shift+Enter still creates a line break inside the current row.
-    if(isListRow && e.key==="Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey){
+    // Shift+Enter stays inside this row as a soft line break.
+    if(e.key==="Enter" && e.shiftKey)return;
+
+    // Enter on a list row behaves like Craft.
+    if(e.key==="Enter" && !e.metaKey && !e.ctrlKey && !e.altKey){
       e.preventDefault();
+      if(e.repeat || field.dataset.listActionBusy==="1")return;
+      field.dataset.listActionBusy="1";
       clearTimeout(timer);
 
-      const html=sanitizeRichBlockHtml(field.innerHTML);
-      content={...content,text:blockPlainText(field),html};
-      updateCategoryBlock(block,{content});
+      try{
+        if(categoryListFieldIsEmpty(field)){
+          // Empty list row exits the list without creating another empty row.
+          const nextContent={...content,text:"",html:""};
+          if(block.type==="checklist")delete nextContent.checked;
+          block.type="paragraph";
+          block.content=nextContent;
+          await updateCategoryBlock(block,{type:"paragraph",content:nextContent});
+          renderCategoryBlocks();
+          setTimeout(()=>{
+            const next=document.querySelector('[data-block-id="'+block.id+'"] .category-block-input');
+            next?.focus();
+            placeCaretAtEnd(next);
+          },30);
+          return;
+        }
 
-      createCategoryBlock(block.type,block.id);
+        // Save exactly what is visible before creating the next row.
+        const html=sanitizeRichBlockHtml(field.innerHTML);
+        content={...content,text:blockPlainText(field),html};
+        await updateCategoryBlock(block,{content});
+
+        // Checklist rows always continue unchecked. Bullet and numbered rows
+        // continue with the same type directly underneath.
+        await createCategoryBlock(block.type,block.id);
+      } finally {
+        field.dataset.listActionBusy="0";
+      }
+      return;
+    }
+
+    // Backspace on a completely empty list row exits the list too.
+    if(e.key==="Backspace" && !e.metaKey && !e.ctrlKey && !e.altKey && categoryListFieldIsEmpty(field)){
+      e.preventDefault();
+      if(field.dataset.listActionBusy==="1")return;
+      field.dataset.listActionBusy="1";
+      clearTimeout(timer);
+
+      try{
+        const nextContent={...content,text:"",html:""};
+        if(block.type==="checklist")delete nextContent.checked;
+        block.type="paragraph";
+        block.content=nextContent;
+        await updateCategoryBlock(block,{type:"paragraph",content:nextContent});
+        renderCategoryBlocks();
+        setTimeout(()=>{
+          const next=document.querySelector('[data-block-id="'+block.id+'"] .category-block-input');
+          next?.focus();
+          placeCaretAtEnd(next);
+        },30);
+      } finally {
+        field.dataset.listActionBusy="0";
+      }
       return;
     }
 
     if((e.metaKey||e.ctrlKey)&&e.key==="Enter"){
       e.preventDefault();
-      createCategoryBlock("paragraph",block.id);
+      await createCategoryBlock("paragraph",block.id);
     }
   });
 
