@@ -654,26 +654,84 @@ async function createCategoryBlock(type="paragraph", afterId=null) {
   setTimeout(()=>document.querySelector('[data-block-id="'+local.id+'"] .category-block-input')?.focus(),40);
 }
 
+const categoryBlockSaveChains=new Map();
+const categoryBlockPendingCounts=new Map();
+
+function categoryBlockHasPendingSave(id) {
+  return (categoryBlockPendingCounts.get(id)||0)>0;
+}
+
+function markCategoryBlockSavePending(id,delta) {
+  const next=Math.max(0,(categoryBlockPendingCounts.get(id)||0)+delta);
+  if(next)categoryBlockPendingCounts.set(id,next);
+  else categoryBlockPendingCounts.delete(id);
+}
+
+function waitForCategoryBlockSave(id) {
+  return categoryBlockSaveChains.get(id)||Promise.resolve();
+}
+
+async function waitForCategoryBlockSaves(ids) {
+  await Promise.all([...new Set(ids)].map(waitForCategoryBlockSave));
+}
+
+function queueCategoryBlockSave(block,payload) {
+  const id=block.id;
+  const previous=categoryBlockSaveChains.get(id)||Promise.resolve();
+  markCategoryBlockSavePending(id,1);
+
+  const task=previous
+    .catch(()=>{})
+    .then(()=>commitMutation({
+      table:"category_blocks",action:"update",payload,match:{id}
+    },[block]))
+    .then(result=>{
+      if(result.error)toast(result.error.message,true);
+      return result;
+    })
+    .finally(()=>{
+      markCategoryBlockSavePending(id,-1);
+      if(categoryBlockSaveChains.get(id)===task)categoryBlockSaveChains.delete(id);
+    });
+
+  categoryBlockSaveChains.set(id,task);
+  return task;
+}
+
 async function updateCategoryBlock(block, patch) {
-  Object.assign(block,patch,{updated_at:new Date().toISOString()});
+  const updated_at=new Date().toISOString();
+  Object.assign(block,patch,{updated_at});
   saveOfflineCache();
-  const payload={};
+
+  const payload={updated_at};
   if(patch.content!==undefined)payload.content=patch.content;
   if(patch.settings!==undefined)payload.settings=patch.settings;
   if(patch.type!==undefined)payload.type=patch.type;
   if(patch.position!==undefined)payload.position=patch.position;
 
-  const result=await commitMutation({
-    table:"category_blocks",action:"update",payload,match:{id:block.id}
-  },[block]);
-  if(result.error)toast(result.error.message,true);
+  const result=await queueCategoryBlockSave(block,payload);
   updateCategoryDocumentMeta();
+  return result;
 }
 
 async function deleteCategoryBlock(block) {
+  const rows=blocksForActiveCategory();
+  const index=rows.findIndex(x=>x.id===block.id);
+  const focusId=rows[index+1]?.id||rows[index-1]?.id||null;
+
+  await waitForCategoryBlockSave(block.id);
+
   state.categoryBlocks=state.categoryBlocks.filter(x=>x.id!==block.id);
   saveOfflineCache();
   renderCategoryBlocks();
+
+  if(focusId){
+    setTimeout(()=>{
+      const field=document.querySelector('[data-block-id="'+focusId+'"] .category-block-input');
+      field?.focus();
+      placeCaretAtEnd(field);
+    },30);
+  }
 
   const result=await commitMutation({
     table:"category_blocks",action:"delete",match:{id:block.id}
