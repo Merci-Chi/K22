@@ -1285,7 +1285,7 @@ async function createMediaBlock(kind) {
 
   const storedType=isPhotoCard?"image":kind;
   const settings=isPhotoCard
-    ? {size:"small",presentation:"polaroid"}
+    ? {size:"small",presentation:"polaroid",card_style:"polaroid"}
     : kind==="image"
       ? {size:"medium"}
       : kind==="gallery"
@@ -1349,7 +1349,10 @@ function mediaBlockField(block,content) {
     const size=block.settings?.size||"medium";
     const isPolaroid=block.settings?.presentation==="polaroid";
     wrap.classList.add("size-"+size);
-    if(isPolaroid)wrap.classList.add("category-photo-card");
+    if(isPolaroid){
+      wrap.classList.add("category-photo-card");
+      wrap.classList.add("card-style-"+categoryCardStyle(block));
+    }
 
     if(isPolaroid){
       wrap.innerHTML=`
@@ -1669,7 +1672,7 @@ function categoryRichContentAtCaret(field) {
 
 function textCardBlockField(block,content) {
   const wrap=document.createElement("div");
-  wrap.className="category-text-card";
+  wrap.className="category-text-card card-style-"+categoryCardStyle(block);
 
   wrap.innerHTML=`
     <input class="category-text-card-title" type="text" placeholder="Card title" value="${esc(content.title||"")}">
@@ -2059,6 +2062,37 @@ async function convertCategoryBlock(block,nextType) {
   },30);
 }
 
+function isCategoryCardBlock(block) {
+  return (
+    (block.type==="paragraph" && block.settings?.presentation==="card") ||
+    (block.type==="image" && block.settings?.presentation==="polaroid")
+  );
+}
+
+function categoryCardSize(block) {
+  return ["small","medium","full"].includes(block.settings?.size)
+    ? block.settings.size
+    : "small";
+}
+
+function categoryCardStyle(block) {
+  if(block.type==="image" && block.settings?.presentation==="polaroid"){
+    return ["polaroid","soft","minimal"].includes(block.settings?.card_style)
+      ? block.settings.card_style
+      : "polaroid";
+  }
+  return ["plain","soft","outline"].includes(block.settings?.card_style)
+    ? block.settings.card_style
+    : "plain";
+}
+
+async function updateCategoryCardSetting(block,patch) {
+  if(!isCategoryCardBlock(block))return;
+  block.settings={...(block.settings||{}),...patch};
+  await updateCategoryBlock(block,{settings:block.settings});
+  renderCategoryBlocks();
+}
+
 function closeCategoryBlockMenus(except=null) {
   document.querySelectorAll(".category-block-action-menu").forEach(menu=>{
     if(menu!==except)menu.classList.add("hidden");
@@ -2076,10 +2110,35 @@ function categoryBlockActionMenu(block,index,total) {
         .join("")
     : "";
 
+  const isCard=isCategoryCardBlock(block);
+  const cardSize=isCard?categoryCardSize(block):null;
+  const cardStyle=isCard?categoryCardStyle(block):null;
+  const cardSizeItems=isCard
+    ? ["small","medium","full"].map(size=>
+        '<button type="button" data-card-size="'+size+'" class="'+(cardSize===size?"active":"")+'">'+
+          '<i data-lucide="'+(size==="small"?"square":size==="medium"?"panels-top-left":"rectangle-horizontal")+'"></i>'+
+          '<span>'+(size==="small"?"Small":size==="medium"?"Medium":"Full")+'</span>'+
+        '</button>'
+      ).join("")
+    : "";
+
+  const styleChoices=block.type==="image"
+    ? [["polaroid","Polaroid","image"],["soft","Soft","sparkles"],["minimal","Minimal","frame"]]
+    : [["plain","Plain","square"],["soft","Soft","sparkles"],["outline","Outline","panel-top"]];
+
+  const cardStyleItems=isCard
+    ? styleChoices.map(([value,label,icon])=>
+        '<button type="button" data-card-style="'+value+'" class="'+(cardStyle===value?"active":"")+'">'+
+          '<i data-lucide="'+icon+'"></i><span>'+label+'</span>'+
+        '</button>'
+      ).join("")
+    : "";
+
   menu.innerHTML=`
     <button type="button" data-action="up" ${index===0?"disabled":""}><i data-lucide="arrow-up"></i><span>Move up</span></button>
     <button type="button" data-action="down" ${index===total-1?"disabled":""}><i data-lucide="arrow-down"></i><span>Move down</span></button>
     <button type="button" data-action="duplicate"><i data-lucide="copy"></i><span>Duplicate</span></button>
+    ${isCard ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Card size</div><div class="category-block-card-options">'+cardSizeItems+'</div><div class="category-block-convert-label">Card style</div><div class="category-block-card-options">'+cardStyleItems+'</div>' : ""}
     ${convertItems ? '<div class="category-block-menu-separator"></div><div class="category-block-convert-label">Turn into</div><div class="category-block-convert-list">'+convertItems+'</div>' : ""}
     <div class="category-block-menu-separator"></div>
     <button type="button" data-action="delete" class="danger"><i data-lucide="trash-2"></i><span>Delete</span></button>
@@ -2097,6 +2156,8 @@ function categoryBlockActionMenu(block,index,total) {
       if(confirm("Delete this block?"))return deleteCategoryBlock(block);
       return;
     }
+    if(button.dataset.cardSize)return updateCategoryCardSetting(block,{size:button.dataset.cardSize});
+    if(button.dataset.cardStyle)return updateCategoryCardSetting(block,{card_style:button.dataset.cardStyle});
     if(button.dataset.convert)return convertCategoryBlock(block,button.dataset.convert);
   });
 
@@ -2163,17 +2224,25 @@ function renderCategoryBlocks() {
   }
   if(count)count.textContent=rows.length+" "+(rows.length===1?"block":"blocks");
 
+  let activeCardGrid=null;
+
   rows.forEach((block,index)=>{
     const hiddenBySection=isBlockHiddenByCollapsedSection(rows,index);
-    if(hiddenBySection)return;
+    if(hiddenBySection){
+      activeCardGrid=null;
+      return;
+    }
     const type=CATEGORY_BLOCK_TYPES[block.type]||CATEGORY_BLOCK_TYPES.paragraph;
     const content=normalizeBlockContent(block);
     const row=document.createElement("div");
     const parentSection=block.type==="section"?null:sectionForPosition(rows,index);
     const sectionStyle=parentSection?.settings?.style||"plain";
     const selected=selectedCategoryBlockIds.has(block.id);
-    row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(selected?" selected":"")+(parentSection?" in-section section-style-"+sectionStyle:"");
+    const isCardBlock=isCategoryCardBlock(block);
+    const cardSize=isCardBlock?categoryCardSize(block):null;
+    row.className="category-block category-block-"+block.type+(content.checked?" checked":"")+(selected?" selected":"")+(isCardBlock?" category-card-grid-item card-size-"+cardSize:"")+(parentSection?" in-section section-style-"+sectionStyle:"");
     row.dataset.blockId=block.id;
+    if(isCardBlock)row.dataset.cardSize=cardSize;
     row.draggable=!categoryBlockSelectionMode;
 
     const rail=document.createElement("div");
@@ -2263,7 +2332,18 @@ function renderCategoryBlocks() {
       await moveCategoryBlockTo(dragged,block,before);
     });
 
-    canvas.appendChild(row);
+    if(isCardBlock){
+      if(!activeCardGrid){
+        activeCardGrid=document.createElement("div");
+        activeCardGrid.className="category-card-grid";
+        canvas.appendChild(activeCardGrid);
+      }
+      activeCardGrid.appendChild(row);
+    }else{
+      activeCardGrid=null;
+      canvas.appendChild(row);
+    }
+
     if(["image","gallery"].includes(block.type)){
       hydrateMediaBlock(block,row);
     }
@@ -2331,7 +2411,7 @@ function bindCategoryBlockMenu() {
         "paragraph",
         null,
         {title:"",text:""},
-        {presentation:"card"}
+        {presentation:"card",size:"small",card_style:"plain"}
       );
     });
   });
